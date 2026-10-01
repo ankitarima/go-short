@@ -20,11 +20,14 @@
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build --workspaces --if-present",
     "db:migrate": "npm run migrate --workspace @go-short/database",
-    "db:generate": "npm run generate --workspace @go-short/database"
+    "db:generate": "npm run generate --workspace @go-short/database",
+    "dev": "concurrently -k -n api,worker,redirect,web -c blue,magenta,yellow,green \"npm run dev -w @go-short/api\" \"npm run dev -w @go-short/worker\" \"npm run dev -w @go-short/redirect\" \"npm run dev -w @go-short/web\"",
+    "seed:demo": "tsx --env-file=.env scripts/seed-demo.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.3",
+    "concurrently": "^10.0.5",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "prettier": "^3.9.9",

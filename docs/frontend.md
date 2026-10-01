@@ -5,9 +5,8 @@ A single-page app: React 19, Vite, TypeScript (strict), Tailwind CSS v4, Radix p
 ## Running it
 
 ```bash
-npm run dev:infra                       # Postgres + Valkey
-npm run dev --workspace @go-short/api   # API on :4000 (plus worker and redirect as needed)
-npm run dev --workspace @go-short/web   # Vite on :5173
+npm run dev:infra   # Postgres + Valkey (Docker)
+npm run dev         # api :4000, worker, redirect :4001 and web :5173 together
 ```
 
 Vite proxies `/api/*`, `/docs`, `/openapi.json`, `/health` and `/ready` to `VITE_API_PROXY` (default `http://localhost:4000`), so the browser talks to one origin and session cookies work without CORS.
