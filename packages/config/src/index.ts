@@ -51,6 +51,8 @@ const schema = z
     ANALYTICS_BATCH_MAX: z.coerce.number().int().min(1).max(2000).default(500),
     /** Hard cap on events held in memory while the queue is unreachable; oldest are dropped beyond it. */
     ANALYTICS_BUFFER_MAX: z.coerce.number().int().min(1000).max(1_000_000).default(20_000),
+    /** Requests per minute allowed per API key (fixed window). */
+    API_KEY_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(100_000).default(600),
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
     FEATURE_CUSTOM_DOMAINS: bool.default(true),
     FEATURE_CAMPAIGNS: bool.default(true),

@@ -228,3 +228,15 @@ export const qrImageQuery = z.object({
   size: z.coerce.number().int().min(128).max(2048).optional(),
   download: z.enum(['1', 'true']).optional(),
 });
+
+// ---- API keys ----
+export const createApiKeySchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  /** Keys can be read-only or read/write; never ADMIN/OWNER. */
+  role: z.enum(['VIEWER', 'MEMBER']).default('MEMBER'),
+  expiresAt: z.iso
+    .datetime({ offset: true })
+    .transform((s) => new Date(s))
+    .refine((d) => d.getTime() > Date.now(), 'expiresAt must be in the future')
+    .nullish(),
+});

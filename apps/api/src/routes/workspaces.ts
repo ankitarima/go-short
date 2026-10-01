@@ -10,10 +10,11 @@ import { type Request, type Response, Router } from 'express';
 import { z } from 'zod';
 import type { AppContext } from '../context';
 import { randomToken, sha256 } from '../lib/crypto';
-import { requireAuth, requireWorkspace } from '../middleware/auth';
+import { requireAuth, requireSession, requireWorkspace } from '../middleware/auth';
 import { rateLimit } from '../middleware/rateLimit';
 import { domainsRouter } from './domains';
 import { analyticsRouter } from './analytics';
+import { apiKeysRouter } from './apiKeys';
 import { campaignsRouter } from './campaigns';
 import { linksRouter } from './links';
 import { qrRouter } from './qr';
@@ -39,7 +40,8 @@ export function workspacesRouter(ctx: AppContext): Router {
   const { prisma } = ctx;
   r.use(requireAuth);
 
-  r.get('/', async (req, res) => {
+  // Listing/creating workspaces and accepting invitations act on the person, so API keys are refused.
+  r.get('/', requireSession, async (req, res) => {
     const rows = await prisma.workspaceMember.findMany({
       where: { userId: req.auth!.user.id },
       include: { workspace: true },
@@ -54,6 +56,7 @@ export function workspacesRouter(ctx: AppContext): Router {
 
   r.post(
     '/',
+    requireSession,
     rateLimit(ctx, {
       name: 'ws-create',
       limit: 20,
@@ -97,6 +100,7 @@ export function workspacesRouter(ctx: AppContext): Router {
   // Accepting an invitation happens before the caller is a member, so it lives outside :workspaceId.
   r.post(
     '/invitations/accept',
+    requireSession,
     rateLimit(ctx, { name: 'invite-accept', limit: 20, windowSeconds: 900 }),
     async (req, res) => {
       const { token } = z.object({ token: z.string().min(20).max(200) }).parse(req.body);
@@ -138,6 +142,7 @@ export function workspacesRouter(ctx: AppContext): Router {
   ws.use('/analytics', analyticsRouter(ctx));
   ws.use('/campaigns', campaignsRouter(ctx));
   ws.use('/qr', qrRouter(ctx));
+  ws.use('/api-keys', apiKeysRouter(ctx));
 
   ws.get('/', requireWorkspace(ctx, 'workspace:read'), async (req, res) => {
     const w = await prisma.workspace.findUniqueOrThrow({ where: { id: req.workspace!.id } });
@@ -257,7 +262,15 @@ export function workspacesRouter(ctx: AppContext): Router {
       }
       if (target.role === 'OWNER' && role !== 'OWNER')
         await assertAnotherOwner(tx, req.workspace!.id, target.id);
-      return tx.workspaceMember.update({ where: { id: target.id }, data: { role } });
+      const m = await tx.workspaceMember.update({ where: { id: target.id }, data: { role } });
+      // A demoted member's API keys can never exceed the member's own power.
+      if (role === 'VIEWER') {
+        await tx.apiKey.updateMany({
+          where: { workspaceId: m.workspaceId, createdById: m.userId, role: { not: 'VIEWER' } },
+          data: { role: 'VIEWER' },
+        });
+      }
+      return m;
     });
     await audit(ctx, {
       workspaceId: req.workspace!.id,
@@ -271,28 +284,38 @@ export function workspacesRouter(ctx: AppContext): Router {
   });
 
   // Any member may remove themselves (leave); removing others needs members:manage.
-  ws.delete('/members/:memberId', requireWorkspace(ctx, 'workspace:read'), async (req, res) => {
-    const memberId = z.string().parse(req.params.memberId);
-    await prisma.$transaction(async (tx) => {
-      const target = await tx.workspaceMember.findFirst({
-        where: { id: memberId, workspaceId: req.workspace!.id },
+  ws.delete(
+    '/members/:memberId',
+    requireSession,
+    requireWorkspace(ctx, 'workspace:read'),
+    async (req, res) => {
+      const memberId = z.string().parse(req.params.memberId);
+      await prisma.$transaction(async (tx) => {
+        const target = await tx.workspaceMember.findFirst({
+          where: { id: memberId, workspaceId: req.workspace!.id },
+        });
+        if (!target) throw new AppError('NOT_FOUND', 'Member not found');
+        const self = target.userId === req.auth!.user.id;
+        if (!self && !canAssignRole(req.workspace!.role, target.role))
+          throw new AppError('FORBIDDEN', 'You cannot remove this member');
+        if (target.role === 'OWNER') await assertAnotherOwner(tx, req.workspace!.id, target.id);
+        await tx.workspaceMember.delete({ where: { id: target.id } });
+        // Keys act as their creator, so they die with the membership.
+        await tx.apiKey.updateMany({
+          where: { workspaceId: target.workspaceId, createdById: target.userId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
       });
-      if (!target) throw new AppError('NOT_FOUND', 'Member not found');
-      const self = target.userId === req.auth!.user.id;
-      if (!self && !canAssignRole(req.workspace!.role, target.role))
-        throw new AppError('FORBIDDEN', 'You cannot remove this member');
-      if (target.role === 'OWNER') await assertAnotherOwner(tx, req.workspace!.id, target.id);
-      await tx.workspaceMember.delete({ where: { id: target.id } });
-    });
-    await audit(ctx, {
-      workspaceId: req.workspace!.id,
-      userId: req.auth!.user.id,
-      action: 'MEMBER_REMOVED',
-      resourceType: 'member',
-      resourceId: memberId,
-    });
-    res.json({ success: true, data: {} });
-  });
+      await audit(ctx, {
+        workspaceId: req.workspace!.id,
+        userId: req.auth!.user.id,
+        action: 'MEMBER_REMOVED',
+        resourceType: 'member',
+        resourceId: memberId,
+      });
+      res.json({ success: true, data: {} });
+    },
+  );
 
   ws.get('/audit-logs', requireWorkspace(ctx, 'audit:read'), async (req, res) => {
     const { limit, cursor } = cursorQuery.parse(req.query);

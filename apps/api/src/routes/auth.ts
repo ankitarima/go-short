@@ -11,7 +11,7 @@ import { z } from 'zod';
 import type { AppContext } from '../context';
 import { randomToken, sha256 } from '../lib/crypto';
 import { burnVerify, hashPassword, verifyPassword } from '../lib/password';
-import { requireAuth } from '../middleware/auth';
+import { requireAuth, requireSession } from '../middleware/auth';
 import { rateLimit } from '../middleware/rateLimit';
 import { audit } from '../services/audit';
 import { SESSION_COOKIE, cookieOptions, createSession } from '../services/sessions';
@@ -89,13 +89,13 @@ export function authRouter(ctx: AppContext): Router {
     res.json({ success: true, data: { user: publicUser(user), csrfToken: session.csrfToken } });
   });
 
-  r.post('/logout', requireAuth, async (req, res) => {
-    await prisma.session.delete({ where: { id: req.auth!.session.id } });
+  r.post('/logout', requireAuth, requireSession, async (req, res) => {
+    await prisma.session.delete({ where: { id: req.auth!.session!.id } });
     res.clearCookie(SESSION_COOKIE, { ...cookieOptions(ctx), maxAge: undefined });
     res.json({ success: true, data: {} });
   });
 
-  r.post('/change-password', requireAuth, strict, async (req, res) => {
+  r.post('/change-password', requireAuth, requireSession, strict, async (req, res) => {
     const input = changePasswordSchema.parse(req.body);
     const user = await prisma.user.findUniqueOrThrow({ where: { id: req.auth!.user.id } });
     if (!(await verifyPassword(user.passwordHash, input.currentPassword))) {
@@ -105,7 +105,7 @@ export function authRouter(ctx: AppContext): Router {
     await prisma.$transaction([
       prisma.user.update({ where: { id: user.id }, data: { passwordHash } }),
       // Sign out every other device.
-      prisma.session.deleteMany({ where: { userId: user.id, id: { not: req.auth!.session.id } } }),
+      prisma.session.deleteMany({ where: { userId: user.id, id: { not: req.auth!.session!.id } } }),
     ]);
     await audit(ctx, {
       userId: user.id,

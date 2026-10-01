@@ -36,3 +36,19 @@ Request logs contain method, path (no query string), status, duration, request i
 ## Privacy
 
 Operators are responsible for compliance with applicable privacy laws; see [analytics.md](analytics.md).
+
+## API keys
+
+- **Format and storage:** `gs_<8-char prefix>_<43-char secret>` (256 bits of randomness). Only the SHA-256 hash and the public prefix are stored; the full key is returned **once**, at creation, with `Cache-Control: no-store`. Lists show only `gs_xxxxxxxx…`. Audit entries contain the prefix, never the key.
+- **Scope:** a key is bound to **one workspace** and one role, **VIEWER** (read-only) or **MEMBER** (read/write). It can never be ADMIN/OWNER and never carries system-admin powers. A request naming a different workspace is `404`.
+- **What keys cannot do:** keys are refused on endpoints that act on the person: `/me`, listing/creating workspaces, accepting invitations, logout, password change, leaving a workspace, audit logs, and **creating/listing/revoking API keys**. Members and domains management also needs ADMIN, which a key never has.
+- **Lifecycle:** revocable (`revokedAt`), optional `expiresAt`, `lastUsedAt` (updated at most once a minute, off the request path), at most 50 active keys per workspace, creation rate limited. Removing a member **revokes their keys**; demoting them to VIEWER **caps their keys to VIEWER**; deleting the workspace deletes its keys.
+- **Authentication:** `Authorization: Bearer gs_...`. A malformed/unknown/revoked/expired key is `401`. When an `Authorization` header is present it is used **instead of** any session cookie and never falls back to it. Shape is checked before any database lookup.
+- **CSRF:** not applicable to bearer keys (no ambient credentials); cookie sessions still require the CSRF header.
+- **Rate limit:** per key, fixed window, `API_KEY_RATE_LIMIT_PER_MINUTE` (default 600), with `RateLimit-*` and `Retry-After` headers. It fails open if Redis is unavailable (logged).
+- **Flat routes:** `/api/v1/links`, `/domains`, `/campaigns`, `/qr`, `/analytics` use the key's own workspace; they require a key (a browser session gets `401` there). The same routers and permission checks serve the nested `/workspaces/:id/...` routes.
+- `FEATURE_API=false` disables key authentication and creation.
+
+## Analytics export
+
+Raw-event CSV exports exclude IP and visitor hashes, neutralize spreadsheet formulas, and need MEMBER or above.

@@ -5,9 +5,14 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 import type { AppContext } from './context';
-import { loadSession } from './middleware/auth';
+import { loadSession, requireApiKey } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/errors';
+import { analyticsRouter } from './routes/analytics';
 import { authRouter } from './routes/auth';
+import { campaignsRouter } from './routes/campaigns';
+import { domainsRouter } from './routes/domains';
+import { linksRouter } from './routes/links';
+import { qrRouter } from './routes/qr';
 import { healthRouter } from './routes/health';
 import { internalRouter } from './routes/internal';
 import { meRouter } from './routes/me';
@@ -54,6 +59,17 @@ export function createApp(ctx: AppContext): Express {
   v1.use('/auth', authRouter(ctx));
   v1.use('/me', meRouter(ctx));
   v1.use('/workspaces', workspacesRouter(ctx));
+
+  // Flat, API-key-only routes (`/api/v1/links`, ...). The workspace is the key's own, never a client claim;
+  // the same routers and permission checks as the nested routes are used, with the key's role.
+  const flat = express.Router();
+  // requireApiKey is per mount (not on the whole router) so unknown paths still return 404.
+  flat.use('/domains', requireApiKey, domainsRouter(ctx));
+  flat.use('/links', requireApiKey, linksRouter(ctx));
+  flat.use('/campaigns', requireApiKey, campaignsRouter(ctx));
+  flat.use('/qr', requireApiKey, qrRouter(ctx));
+  flat.use('/analytics', requireApiKey, analyticsRouter(ctx));
+  v1.use(flat);
   app.use('/api/v1', v1);
 
   app.use(notFoundHandler);
