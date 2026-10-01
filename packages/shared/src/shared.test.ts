@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
+  buildCacheEntry,
   can,
   canAssignRole,
   checkCustomSlug,
   generateSlug,
+  linkCacheKey,
   mergeUtm,
   normalizeDestinationUrl,
   normalizeHostname,
@@ -91,5 +93,42 @@ describe('permissions', () => {
     expect(canAssignRole('ADMIN', 'OWNER')).toBe(false);
     expect(canAssignRole('MEMBER', 'VIEWER')).toBe(false);
     expect(canAssignRole('OWNER', 'OWNER')).toBe(true);
+  });
+});
+
+describe('redirect cache entry', () => {
+  const link = {
+    id: 'l1',
+    workspaceId: 'w1',
+    campaignId: 'c1',
+    destinationUrl: 'https://a.com/p?x=1',
+    isActive: true,
+    expiresAt: null,
+    passwordHash: null,
+    redirectStatus: null,
+    utmSource: 'ig',
+    utmMedium: 'social',
+    utmCampaign: null,
+    utmTerm: null,
+    utmContent: null,
+  };
+  it('has stable, lowercase-host keys', () => {
+    expect(linkCacheKey('Go.Example.com', 'aK92xP')).toBe('link:go.example.com:aK92xP');
+  });
+  it('merges UTM into the cached destination', () => {
+    expect(buildCacheEntry(link).destinationUrl).toBe(
+      'https://a.com/p?x=1&utm_source=ig&utm_medium=social',
+    );
+  });
+  it('never caches the destination or hash of a password-protected link', () => {
+    const e = buildCacheEntry({ ...link, passwordHash: '$argon2id$secret' });
+    expect(e.destinationUrl).toBeNull();
+    expect(e.hasPassword).toBe(true);
+    expect(JSON.stringify(e)).not.toContain('argon2');
+  });
+  it('serializes expiry', () => {
+    expect(
+      buildCacheEntry({ ...link, expiresAt: new Date('2030-01-01T00:00:00Z') }).expiresAt,
+    ).toBe('2030-01-01T00:00:00.000Z');
   });
 });

@@ -3,6 +3,9 @@ import { disconnectPrisma, getPrisma } from '@go-short/database';
 import { Redis } from 'ioredis';
 import { pino } from 'pino';
 import { createApp } from './app';
+import type { AppContext } from './context';
+import { systemDnsResolver } from './services/dns';
+import { ensureSharedDomain } from './services/domains';
 import { ConsoleEmailProvider } from './services/email';
 
 const config = loadConfig();
@@ -21,13 +24,16 @@ const redis = new Redis(config.REDIS_URL, { maxRetriesPerRequest: 2, enableOffli
 redis.on('error', (err) => logger.error({ err }, 'redis error'));
 const prisma = getPrisma();
 
-const app = createApp({
+const ctx: AppContext = {
   config,
   prisma,
   redis,
   logger,
   email: new ConsoleEmailProvider(logger, config.isProd),
-});
+  dns: systemDnsResolver,
+};
+await ensureSharedDomain(ctx);
+const app = createApp(ctx);
 const server = app.listen(config.API_PORT, () =>
   logger.info({ port: config.API_PORT }, 'api listening'),
 );

@@ -5,6 +5,8 @@ import { pino } from 'pino';
 import request from 'supertest';
 import { createApp } from '../src/app';
 import type { AppContext } from '../src/context';
+import type { DnsResolver } from '../src/services/dns';
+import { ensureSharedDomain } from '../src/services/domains';
 import type { EmailMessage, EmailProvider } from '../src/services/email';
 
 export class CapturingEmail implements EmailProvider {
@@ -19,13 +21,29 @@ export class CapturingEmail implements EmailProvider {
   }
 }
 
-export function makeCtx(): AppContext & { email: CapturingEmail } {
+export class FakeDns implements DnsResolver {
+  cname = new Map<string, string[]>();
+  txt = new Map<string, string[][]>();
+  async resolveCname(h: string) {
+    const v = this.cname.get(h);
+    if (!v) throw Object.assign(new Error('ENODATA'), { code: 'ENODATA' });
+    return v;
+  }
+  async resolveTxt(h: string) {
+    const v = this.txt.get(h);
+    if (!v) throw Object.assign(new Error('ENODATA'), { code: 'ENODATA' });
+    return v;
+  }
+}
+
+export function makeCtx(): AppContext & { email: CapturingEmail; dns: FakeDns } {
   return {
     config: loadConfig(),
     prisma: getPrisma(),
     redis: new Redis(process.env.REDIS_URL!),
     logger: pino({ level: 'silent' }),
     email: new CapturingEmail(),
+    dns: new FakeDns(),
   };
 }
 
@@ -34,6 +52,8 @@ export async function resetDb(ctx: AppContext) {
     'TRUNCATE "User","Workspace","ClickEvent","AnalyticsDaily","AnalyticsDimensionDaily","DailyVisitor","AuditLog" CASCADE',
   );
   await ctx.redis.flushdb();
+  await ctx.prisma.domain.deleteMany();
+  await ensureSharedDomain(ctx);
 }
 
 export interface Client {
@@ -62,3 +82,31 @@ export const post = (c: Client, path: string, body: object = {}) =>
 export const patch = (c: Client, path: string, body: object = {}) =>
   c.agent.patch(path).set('X-CSRF-Token', c.csrf).send(body);
 export const del = (c: Client, path: string) => c.agent.delete(path).set('X-CSRF-Token', c.csrf);
+
+export const get = (c: Client, path: string) => c.agent.get(path);
+
+export async function createWorkspace(c: Client, name = 'Acme'): Promise<string> {
+  return (await post(c, '/api/v1/workspaces', { name }).expect(201)).body.data.id as string;
+}
+
+export async function sharedDomainId(c: Client, wsId: string): Promise<string> {
+  const rows = (await c.agent.get(`/api/v1/workspaces/${wsId}/domains`).expect(200)).body.data as {
+    id: string;
+    shared: boolean;
+  }[];
+  return rows.find((d) => d.shared)!.id;
+}
+
+/** Adds a custom domain and verifies it through the fake DNS (CNAME to the platform host). */
+export async function addVerifiedDomain(
+  ctx: ReturnType<typeof makeCtx>,
+  c: Client,
+  wsId: string,
+  hostname: string,
+): Promise<string> {
+  const id = (await post(c, `/api/v1/workspaces/${wsId}/domains`, { hostname }).expect(201)).body
+    .data.id as string;
+  ctx.dns.cname.set(hostname, [ctx.config.DEFAULT_SHORT_DOMAIN.split(':')[0]!]);
+  await post(c, `/api/v1/workspaces/${wsId}/domains/${id}/verify`).expect(200);
+  return id;
+}

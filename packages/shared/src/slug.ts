@@ -31,8 +31,8 @@ export function checkCustomSlug(
   reserved: readonly string[] = DEFAULT_RESERVED_SLUGS,
 ): SlugCheck {
   if (slug.length < SLUG_MIN || slug.length > SLUG_MAX) return { ok: false, reason: 'length' };
-  if (!SLUG_RE.test(slug)) return { ok: false, reason: 'characters' };
   if (reserved.some((r) => r.toLowerCase() === slug.toLowerCase()))
     return { ok: false, reason: 'reserved' };
+  if (!SLUG_RE.test(slug)) return { ok: false, reason: 'characters' };
   return { ok: true };
 }

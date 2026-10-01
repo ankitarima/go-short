@@ -38,3 +38,11 @@ Every link/domain mutation commits to Postgres, then deletes the Redis key (and 
 ## Status codes
 
 Default 302 (destination can be edited). 301/308 are cached by browsers indefinitely, so edits may not reach returning visitors; 307/308 preserve the HTTP method. Configurable globally (`REDIRECT_STATUS`) and per link.
+
+## Invalidation details (implemented in `apps/api/src/services/cache.ts`)
+
+- Every link create/update/enable/disable/delete deletes the old **and** new `link:{host}:{slug}` key after the Postgres commit. Creating a link also clears any negative-cache entry for that slug.
+- **Second delete:** a redirect that read the old row just before the commit could re-write the stale value just after our first `DEL`. The API repeats the delete 2 s later (best effort, in-process timer) to close that window; the TTL is the final backstop.
+- Disabling a domain deletes every cached key under it, in batches of 1000.
+- If Redis is down, the mutation still succeeds; the failure is logged at error level and stale entries live at most `REDIRECT_CACHE_TTL_SECONDS`. This is a deliberate availability-over-freshness tradeoff.
+- Password-protected links cache `destinationUrl: null`, so a cache hit can never produce an open redirect; the key format and entry shape live in `packages/shared/src/redirectCache.ts`.

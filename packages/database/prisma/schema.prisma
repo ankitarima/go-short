@@ -157,9 +157,11 @@ model Invitation {
   @@index([workspaceId])
 }
 
+/// workspaceId = null marks the platform-shared default domain (usable by every workspace;
+/// slugs on it are unique across all tenants).
 model Domain {
   id                String       @id @default(cuid())
-  workspaceId       String
+  workspaceId       String?
   hostname          String       @unique
   status            DomainStatus @default(PENDING)
   verificationToken String
@@ -168,7 +170,7 @@ model Domain {
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   links     Link[]
 
   @@index([workspaceId])
