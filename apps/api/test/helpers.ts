@@ -5,7 +5,11 @@ import { pino } from 'pino';
 import request from 'supertest';
 import { createApp } from '../src/app';
 import type { AppContext } from '../src/context';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { DnsResolver } from '../src/services/dns';
+import { LocalStorageProvider } from '../src/services/storage';
 import { ensureSharedDomain } from '../src/services/domains';
 import type { EmailMessage, EmailProvider } from '../src/services/email';
 
@@ -44,6 +48,7 @@ export function makeCtx(): AppContext & { email: CapturingEmail; dns: FakeDns } 
     logger: pino({ level: 'silent' }),
     email: new CapturingEmail(),
     dns: new FakeDns(),
+    storage: new LocalStorageProvider(mkdtempSync(join(tmpdir(), 'go-short-test-'))),
   };
 }
 

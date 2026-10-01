@@ -14,6 +14,7 @@ import { hashPassword } from '../lib/password';
 import { requireWorkspace } from '../middleware/auth';
 import { rateLimit } from '../middleware/rateLimit';
 import { audit } from '../services/audit';
+import { analyticsHandlers } from './analytics';
 import { invalidateLinkKeys } from '../services/cache';
 import { reservedHostnames, requireUsableDomain } from '../services/domains';
 
@@ -109,9 +110,10 @@ export function linksRouter(ctx: AppContext): Router {
     // Scoped by workspace: a campaign id from another tenant is simply "not found".
     const c = await prisma.campaign.findFirst({
       where: { id: campaignId, workspaceId },
-      select: { id: true },
+      select: { id: true, utmCampaign: true },
     });
     if (!c) throw new AppError('CAMPAIGN_NOT_FOUND', 'Campaign not found');
+    return c;
   }
 
   function checkSlug(slug: string) {
@@ -189,7 +191,10 @@ export function linksRouter(ctx: AppContext): Router {
         ? await requireUsableDomain(ctx, wsId, domainId)
         : await defaultDomain(wsId);
       const url = await checkDestination(destinationUrl);
-      await checkCampaign(wsId, rest.campaignId);
+      const campaign = await checkCampaign(wsId, rest.campaignId);
+      // A link in a campaign inherits the campaign's default utm_campaign unless it sets its own.
+      if (campaign?.utmCampaign && rest.utmCampaign === undefined)
+        rest.utmCampaign = campaign.utmCampaign;
       if (customSlug !== undefined) checkSlug(customSlug);
       const passwordHash = await passwordHashFor(password);
 
@@ -229,6 +234,21 @@ export function linksRouter(ctx: AppContext): Router {
     },
   );
 
+  const analytics = analyticsHandlers(ctx);
+  r.get('/:linkId/analytics', requireWorkspace(ctx, 'analytics:read'), async (req, res) => {
+    const l = await findLink(req.workspace!.id, z.string().parse(req.params.linkId));
+    await analytics.analytics(req, res, { linkId: l.id });
+  });
+  r.get(
+    '/:linkId/analytics/export',
+    requireWorkspace(ctx, 'analytics:export'),
+    analytics.exportLimiter,
+    async (req, res) => {
+      const l = await findLink(req.workspace!.id, z.string().parse(req.params.linkId));
+      await analytics.export(req, res, { linkId: l.id });
+    },
+  );
+
   r.get('/:linkId', requireWorkspace(ctx, 'links:read'), async (req, res) => {
     res.json({
       success: true,
@@ -246,7 +266,13 @@ export function linksRouter(ctx: AppContext): Router {
     if (slug !== undefined) checkSlug(slug);
     const data: Prisma.LinkUncheckedUpdateInput = { ...rest };
     if (destinationUrl !== undefined) data.destinationUrl = await checkDestination(destinationUrl);
-    if (rest.campaignId !== undefined) await checkCampaign(wsId, rest.campaignId);
+    if (rest.campaignId !== undefined) {
+      const campaign = await checkCampaign(wsId, rest.campaignId);
+      // Moving a link into a campaign fills a missing utm_campaign from the campaign default.
+      if (campaign?.utmCampaign && rest.utmCampaign === undefined && !before.utmCampaign) {
+        data.utmCampaign = campaign.utmCampaign;
+      }
+    }
     if (domain) data.domainId = domain.id;
     if (slug !== undefined) data.slug = slug;
     if (password !== undefined) data.passwordHash = await passwordHashFor(password);

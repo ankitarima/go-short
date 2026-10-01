@@ -22,6 +22,8 @@ export interface AnalyticsEvent {
   referer: string | null;
   acceptLanguage: string | null;
   forwardedFor: string | null;
+  /** QR code id from the `?qr=` marker on QR-encoded URLs; validated by the worker, never trusted. */
+  qrId?: string | null;
 }
 
 /** One queue job = one batch of events (the redirect service buffers and flushes in batches). */

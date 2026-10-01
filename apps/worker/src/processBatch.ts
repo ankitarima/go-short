@@ -42,7 +42,8 @@ type Dimension =
   | 'REFERRER'
   | 'UTM_SOURCE'
   | 'UTM_MEDIUM'
-  | 'UTM_CAMPAIGN';
+  | 'UTM_CAMPAIGN'
+  | 'QR_CODE';
 
 interface LinkMeta {
   utmSource: string | null;
@@ -55,6 +56,7 @@ interface Row {
   workspaceId: string;
   linkId: string;
   campaignId: string | null;
+  qrCodeId: string | null;
   timestamp: string; // ISO
   day: string; // YYYY-MM-DD (UTC)
   visitorHash: string;
@@ -118,6 +120,8 @@ class TtlCache<V> {
 export class BatchProcessor {
   private readonly links = new TtlCache<LinkMeta>(60_000, 20_000);
   private readonly hashIps = new TtlCache<boolean>(60_000, 5_000);
+  /** qrId -> the link it belongs to (null = unknown). A scan only counts if it matches the clicked link. */
+  private readonly qrs = new TtlCache<string | null>(60_000, 20_000);
   private readonly uaCache = new Map<string, ParsedUa>();
 
   constructor(private readonly deps: WorkerDeps) {}
@@ -163,6 +167,17 @@ export class BatchProcessor {
         );
       }
     }
+    const needQr = [...new Set(events.flatMap((e) => (e.qrId ? [e.qrId] : [])))].filter(
+      (id) => this.qrs.get(id, t) === undefined,
+    );
+    if (needQr.length) {
+      const rows = await this.deps.prisma.qRCode.findMany({
+        where: { id: { in: needQr } },
+        select: { id: true, linkId: true },
+      });
+      const found = new Map(rows.map((r) => [r.id, r.linkId]));
+      for (const id of needQr) this.qrs.set(id, found.get(id) ?? null, t);
+    }
     const needWs = [...new Set(events.map((e) => e.workspaceId))].filter(
       (id) => this.hashIps.get(id, t) === undefined,
     );
@@ -186,6 +201,7 @@ export class BatchProcessor {
       workspaceId: e.workspaceId,
       linkId: e.linkId,
       campaignId: e.campaignId,
+      qrCodeId: e.qrId && this.qrs.get(e.qrId, t) === e.linkId ? e.qrId : null,
       timestamp: new Date(e.timestamp).toISOString(),
       day,
       visitorHash: this.deps.hasher.visitorHash(day, e.ip, e.userAgent),
@@ -222,12 +238,12 @@ export class BatchProcessor {
         // 1. Raw events. ON CONFLICT DO NOTHING + RETURNING tells us which are genuinely new, so a
         //    redelivered batch (retry, duplicate job) is never counted twice.
         const ids = await tx.$queryRaw<{ id: string }[]>`
-        INSERT INTO "ClickEvent" ("id","workspaceId","linkId","campaignId","timestamp","visitorHash","ipHash",
+        INSERT INTO "ClickEvent" ("id","workspaceId","linkId","campaignId","qrCodeId","timestamp","visitorHash","ipHash",
           "country","region","city","device","browser","browserVer","os","osVer","isBot","referrer","language",
           "utmSource","utmMedium","utmCampaign")
         SELECT * FROM unnest(
           ${rows.map((r) => r.id)}::text[], ${rows.map((r) => r.workspaceId)}::text[], ${rows.map((r) => r.linkId)}::text[],
-          ${rows.map((r) => r.campaignId)}::text[], ${rows.map((r) => r.timestamp)}::timestamp[],
+          ${rows.map((r) => r.campaignId)}::text[], ${rows.map((r) => r.qrCodeId)}::text[], ${rows.map((r) => r.timestamp)}::timestamp[],
           ${rows.map((r) => r.visitorHash)}::text[], ${rows.map((r) => r.ipHash)}::text[],
           ${rows.map((r) => r.country)}::text[], ${rows.map((r) => r.region)}::text[], ${rows.map((r) => r.city)}::text[],
           ${rows.map((r) => r.device)}::"DeviceType"[], ${rows.map((r) => r.browser)}::text[], ${rows.map((r) => r.browserVer)}::text[],
@@ -324,7 +340,49 @@ export class BatchProcessor {
         "tabletClicks" = "AnalyticsDaily"."tabletClicks" + EXCLUDED."tabletClicks",
         "campaignId" = EXCLUDED."campaignId"`;
 
+    await this.aggregateBuckets(tx, news);
     await this.aggregateDimensions(tx, news);
+  }
+
+  /** 15-minute click buckets: what makes timelines exact in any timezone. */
+  private async aggregateBuckets(tx: Prisma.TransactionClient, news: Row[]): Promise<void> {
+    const QUARTER = 15 * 60 * 1000;
+    const agg = new Map<
+      string,
+      {
+        bucket: string;
+        linkId: string;
+        isBot: boolean;
+        workspaceId: string;
+        campaignId: string | null;
+        clicks: number;
+      }
+    >();
+    for (const r of news) {
+      const bucket = new Date(
+        Math.floor(Date.parse(r.timestamp) / QUARTER) * QUARTER,
+      ).toISOString();
+      const k = `${bucket}|${r.linkId}|${r.isBot}`;
+      const a = agg.get(k);
+      if (a) a.clicks++;
+      else
+        agg.set(k, {
+          bucket,
+          linkId: r.linkId,
+          isBot: r.isBot,
+          workspaceId: r.workspaceId,
+          campaignId: r.campaignId,
+          clicks: 1,
+        });
+    }
+    const out = [...agg.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([, v]) => v);
+    await tx.$executeRaw`
+      INSERT INTO "AnalyticsBucket" ("bucket","linkId","isBot","workspaceId","campaignId","clicks")
+      SELECT * FROM unnest(${out.map((o) => o.bucket)}::timestamp[], ${out.map((o) => o.linkId)}::text[], ${out.map((o) => o.isBot)}::boolean[],
+        ${out.map((o) => o.workspaceId)}::text[], ${out.map((o) => o.campaignId)}::text[], ${out.map((o) => o.clicks)}::int[])
+      ON CONFLICT ("bucket","linkId","isBot") DO UPDATE SET
+        "clicks" = "AnalyticsBucket"."clicks" + EXCLUDED."clicks",
+        "campaignId" = EXCLUDED."campaignId"`;
   }
 
   private async aggregateDimensions(tx: Prisma.TransactionClient, news: Row[]): Promise<void> {
@@ -361,6 +419,7 @@ export class BatchProcessor {
       add('UTM_SOURCE', r.utm.utmSource);
       add('UTM_MEDIUM', r.utm.utmMedium);
       add('UTM_CAMPAIGN', r.utm.utmCampaign);
+      add('QR_CODE', r.qrCodeId);
     }
 
     // Cardinality cap for the unbounded dimensions: load what already exists for the touched

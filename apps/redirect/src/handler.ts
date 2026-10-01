@@ -41,6 +41,12 @@ function isSafeLocation(url: string): boolean {
   return true;
 }
 const ALLOWED_STATUS: ReadonlySet<number> = new Set([301, 302, 307, 308]);
+const QR_PARAM = /(?:^|&)qr=([A-Za-z0-9_-]{1,40})(?:&|$)/;
+/** `?qr=<id>` marks a scan of a QR code. Only parsed when a query string exists; validated later by the worker. */
+function qrIdFrom(url: string | undefined): string | null {
+  const q = url?.indexOf('?') ?? -1;
+  return q === -1 ? null : (QR_PARAM.exec(url!.slice(q + 1))?.[1] ?? null);
+}
 const UNLOCK_MAX_ATTEMPTS = 10;
 const UNLOCK_WINDOW_SECONDS = 900;
 
@@ -110,6 +116,7 @@ export function createRedirectServer(deps: RedirectDeps): Server {
         referer: trunc(req.headers.referer, 1024),
         acceptLanguage: trunc(req.headers['accept-language'], 128),
         forwardedFor: trunc(req.headers['x-forwarded-for'], 512),
+        qrId: qrIdFrom(req.url),
       };
       publisher.publish(event);
     } catch (err) {

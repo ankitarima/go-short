@@ -79,6 +79,10 @@ describe('permissions', () => {
     expect(can('VIEWER', 'analytics:read')).toBe(true);
     expect(can('VIEWER', 'links:write')).toBe(false);
   });
+  it('exporting analytics needs MEMBER or above, not VIEWER', () => {
+    expect(can('VIEWER', 'analytics:export')).toBe(false);
+    expect(can('MEMBER', 'analytics:export')).toBe(true);
+  });
   it('member can write links but not manage domains', () => {
     expect(can('MEMBER', 'links:write')).toBe(true);
     expect(can('MEMBER', 'domains:manage')).toBe(false);

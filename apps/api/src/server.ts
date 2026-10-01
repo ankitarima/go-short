@@ -7,6 +7,7 @@ import type { AppContext } from './context';
 import { systemDnsResolver } from './services/dns';
 import { ensureSharedDomain } from './services/domains';
 import { ConsoleEmailProvider } from './services/email';
+import { LocalStorageProvider } from './services/storage';
 
 const config = loadConfig();
 const logger = pino({
@@ -31,6 +32,7 @@ const ctx: AppContext = {
   logger,
   email: new ConsoleEmailProvider(logger, config.isProd),
   dns: systemDnsResolver,
+  storage: new LocalStorageProvider(config.STORAGE_PATH),
 };
 await ensureSharedDomain(ctx);
 const app = createApp(ctx);

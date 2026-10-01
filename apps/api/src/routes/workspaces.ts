@@ -13,7 +13,10 @@ import { randomToken, sha256 } from '../lib/crypto';
 import { requireAuth, requireWorkspace } from '../middleware/auth';
 import { rateLimit } from '../middleware/rateLimit';
 import { domainsRouter } from './domains';
+import { analyticsRouter } from './analytics';
+import { campaignsRouter } from './campaigns';
 import { linksRouter } from './links';
+import { qrRouter } from './qr';
 import { audit } from '../services/audit';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -132,6 +135,9 @@ export function workspacesRouter(ctx: AppContext): Router {
 
   ws.use('/domains', domainsRouter(ctx));
   ws.use('/links', linksRouter(ctx));
+  ws.use('/analytics', analyticsRouter(ctx));
+  ws.use('/campaigns', campaignsRouter(ctx));
+  ws.use('/qr', qrRouter(ctx));
 
   ws.get('/', requireWorkspace(ctx, 'workspace:read'), async (req, res) => {
     const w = await prisma.workspace.findUniqueOrThrow({ where: { id: req.workspace!.id } });

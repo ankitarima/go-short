@@ -342,3 +342,60 @@ describe('throughput', () => {
     console.log(`500-event batch: ${ms.toFixed(0)} ms`);
   });
 });
+
+describe('15-minute buckets', () => {
+  it('aggregates clicks into quarter-hour buckets split by bot flag, idempotently', async () => {
+    const { link, workspace } = await seed();
+    const t = (h: number, m: number, s = 0) => Date.UTC(2026, 9, 1, h, m, s);
+    const batch = [
+      ev(link.id, workspace.id, { timestamp: t(10, 0, 0) }),
+      ev(link.id, workspace.id, { timestamp: t(10, 14, 59) }),
+      ev(link.id, workspace.id, { timestamp: t(10, 15, 0) }),
+      ev(link.id, workspace.id, { timestamp: t(10, 20), userAgent: GOOGLEBOT }),
+    ];
+    const p = makeProcessor({ now: () => t(12, 0) });
+    await p.process(batch);
+    await p.process(batch); // redelivery
+    const rows = await prisma.analyticsBucket.findMany({
+      where: { linkId: link.id },
+      orderBy: [{ bucket: 'asc' }, { isBot: 'asc' }],
+    });
+    expect(rows.map((r) => [r.bucket.toISOString().slice(11, 16), r.isBot, r.clicks])).toEqual([
+      ['10:00', false, 2],
+      ['10:15', false, 1],
+      ['10:15', true, 1],
+    ]);
+  });
+});
+
+describe('QR attribution', () => {
+  it('counts a scan only when the QR exists and belongs to the clicked link', async () => {
+    const { link, workspace } = await seed();
+    const other = await prisma.link.create({
+      data: {
+        workspaceId: workspace.id,
+        domainId: link.domainId,
+        slug: 'other',
+        destinationUrl: 'https://example.org',
+      },
+    });
+    const qr = await prisma.qRCode.create({
+      data: { workspaceId: workspace.id, linkId: link.id, name: 'Poster' },
+    });
+    const otherQr = await prisma.qRCode.create({
+      data: { workspaceId: workspace.id, linkId: other.id, name: 'Other' },
+    });
+    await makeProcessor().process([
+      ev(link.id, workspace.id, { qrId: qr.id }),
+      ev(link.id, workspace.id, { qrId: qr.id, ip: '1.1.1.2' }),
+      ev(link.id, workspace.id, { qrId: otherQr.id }), // QR of a different link: ignored
+      ev(link.id, workspace.id, { qrId: 'forged-id' }), // unknown: ignored
+      ev(link.id, workspace.id, {}),
+    ]);
+    const rows = await prisma.clickEvent.findMany({ orderBy: { timestamp: 'asc' } });
+    expect(rows.filter((r) => r.qrCodeId === qr.id)).toHaveLength(2);
+    expect(rows.filter((r) => r.qrCodeId !== null)).toHaveLength(2);
+    expect(await dim(link.id, 'QR_CODE')).toEqual({ [qr.id]: 2 });
+    expect((await daily(link.id))[0]!.clicks).toBe(5); // QR clicks are still ordinary clicks
+  });
+});

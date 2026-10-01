@@ -419,6 +419,19 @@ describe('client IP and trusted proxies', () => {
   });
 });
 
+describe('QR marker', () => {
+  it('passes a well-formed ?qr= id into the analytics event, and ignores anything else', async () => {
+    await setup();
+    const { server, publisher } = makeRedirect();
+    await get(server, '/hello?qr=qr_abc-123').expect(302);
+    await get(server, '/hello?x=1&qr=abc&y=2').expect(302);
+    await get(server, '/hello?qr=bad%20value!').expect(302);
+    await get(server, '/hello?qr=' + 'a'.repeat(41)).expect(302);
+    await get(server, '/hello').expect(302);
+    expect(publisher.events.map((e) => e.qrId)).toEqual(['qr_abc-123', 'abc', null, null, null]);
+  });
+});
+
 describe('password-protected links', () => {
   it('shows a form without leaking the destination and caches no destination', async () => {
     await setup('vault', { password: 'open-sesame' });

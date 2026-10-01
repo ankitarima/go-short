@@ -62,3 +62,34 @@ Referrer, region and city values are controlled by visitors or the network, so p
 - **Campaign attribution in daily rollups follows the link's campaign at processing time**, so moving a link to another campaign mid-day shifts that day's rollup. Raw `ClickEvent` rows keep the campaign at click time.
 - **UTM values in analytics come from the link's configuration**, not from visitors (short URL query strings are not forwarded), so they are bounded and trustworthy for attribution, but they are looked up when the batch is processed (cached up to 60 s).
 - Worker memory includes the GeoIP database (about 130 MB for DB-IP city-lite).
+
+## Query API
+
+All endpoints are under `/api/v1/workspaces/:id` and need `analytics:read`: `GET /analytics`, `GET /links/:linkId/analytics`, `GET /campaigns/:campaignId/analytics`.
+
+| Query parameter                                                   | Meaning                                                                                              |
+| ----------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `from`, `to`                                                      | Inclusive **local** dates `YYYY-MM-DD` in `timezone`. Default: the last 30 days. Max range 366 days. |
+| `timezone`                                                        | IANA name. Default: the workspace timezone (default `UTC`).                                          |
+| `granularity`                                                     | `day` (default) or `hour` (max 14 days).                                                             |
+| `linkId`, `campaignId`                                            | Scope filters (verified to belong to the workspace; foreign ids are `404`).                          |
+| `country` (ISO-2), `device` (`MOBILE`/`DESKTOP`/`TABLET`/`OTHER`) | See "Filtered queries" below.                                                                        |
+| `includeBots`                                                     | `true`/`false`. Default: the opposite of the workspace `filterBots` setting.                         |
+| `limit`                                                           | Top-N for each breakdown, 1-50 (default 10).                                                         |
+
+Response: `summary` (`clicks`, `humanClicks`, `botClicks`, `uniqueVisitors`, `qrScans`), `timeline` (zero-filled), `countries`, `regions`, `cities`, `devices`, `browsers`, `os`, `referrers`, `utmSources`, `utmMediums`, `utmCampaigns`, `qrCodes` (with names), `topLinks` (labelled, workspace/campaign scope only) and `meta` (resolved timezone/range, `source`, and `notes` about accuracy). Raw events are never returned.
+
+### How it stays fast and correct
+
+- The default path reads only the small rollup tables; the dashboard never scans `ClickEvent`.
+- **Timezones:** the worker also writes **15-minute buckets** (`AnalyticsBucket`, UTC). Timelines and click totals are computed by grouping buckets in the requested timezone, so they are exact for any offset, including +5:30 and +5:45. Unique visitors and the breakdowns come from UTC-day rollups, so in a non-UTC timezone they can differ slightly at the edges of the range (the response says so in `meta.notes`). In UTC everything is exact and consistent.
+- **Filtered queries:** rollups are per-dimension, so they cannot answer "browsers among visitors from India". Requests with `country` or `device` use a bounded aggregation over `ClickEvent` (`meta.source: "events"`), limited to **31 days**.
+- Ties in rankings break alphabetically, so results are deterministic.
+
+### CSV export
+
+`GET .../analytics/export` (also under `/links/:id` and `/campaigns/:id`), needs `analytics:export` (MEMBER and above), 5 per minute per workspace.
+
+- `type=daily` (default): rollup rows per UTC day, link and bot flag.
+- `type=events`: raw clicks, **without IPs or visitor hashes**. Limited to 1,000,000 rows (narrow the range if exceeded).
+  Both stream in keyset-paginated batches of 5,000 with backpressure, so memory stays flat. Cells starting with `= + - @` are prefixed with `'` to defuse spreadsheet formula injection (referrers and UTM values are not fully trusted).

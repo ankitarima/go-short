@@ -31,7 +31,9 @@ async function setup() {
   return { c, ws };
 }
 async function mk(c: Client, ws: string, body: object = {}) {
-  return (await post(c, L(ws), { destinationUrl: dest, ...body }).expect(201)).body.data;
+  const res = await post(c, L(ws), { destinationUrl: dest, ...body });
+  if (res.status !== 201) throw new Error(`mk failed: ${res.status} ${JSON.stringify(res.body)}`);
+  return res.body.data;
 }
 
 describe('link creation', () => {
@@ -370,9 +372,13 @@ describe('listing', () => {
 describe('creation limits', () => {
   it('rate limits link creation per workspace', async () => {
     const { c, ws } = await setup();
-    let last = 0;
-    for (let i = 0; i < 121; i++) last = (await post(c, L(ws), { destinationUrl: dest })).status;
-    expect(last).toBe(429);
+    const statuses: number[] = [];
+    for (let i = 0; i < 121; i++)
+      statuses.push((await post(c, L(ws), { destinationUrl: dest })).status);
+    // Diagnostics: show the whole sequence if the limiter does not trip exactly after 120.
+    expect(statuses.map((x, i) => `${i}:${x}`).filter((x) => !x.endsWith(':201'))).toEqual([
+      '120:429',
+    ]);
   });
 });
 

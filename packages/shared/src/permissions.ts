@@ -18,6 +18,7 @@ export const PERMISSIONS = [
   'qr:read',
   'qr:write',
   'analytics:read',
+  'analytics:export',
   'apikeys:manage',
   'audit:read',
 ] as const;
@@ -39,6 +40,7 @@ const MEMBER: Permission[] = [
   'campaigns:write',
   'campaigns:delete',
   'qr:write',
+  'analytics:export',
 ];
 const ADMIN: Permission[] = [
   ...MEMBER,

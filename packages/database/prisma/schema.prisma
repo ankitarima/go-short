@@ -43,6 +43,7 @@ enum Dimension {
   UTM_SOURCE
   UTM_MEDIUM
   UTM_CAMPAIGN
+  QR_CODE
 }
 
 enum QrFormat {
@@ -183,6 +184,8 @@ model Campaign {
   description String?
   startDate   DateTime?
   endDate     DateTime?
+  /// Default utm_campaign for links created in this campaign (links can override).
+  utmCampaign String?
   createdBy   String?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -255,16 +258,18 @@ model QRCode {
 }
 
 model ApiKey {
-  id          String    @id @default(cuid())
+  id          String        @id @default(cuid())
   workspaceId String
   createdById String
   name        String
   keyPrefix   String
-  keyHash     String    @unique
+  keyHash     String        @unique
+  /// What this key may do: VIEWER (read-only) or MEMBER (read/write). Never ADMIN/OWNER.
+  role        WorkspaceRole @default(MEMBER)
   lastUsedAt  DateTime?
   expiresAt   DateTime?
   revokedAt   DateTime?
-  createdAt   DateTime  @default(now())
+  createdAt   DateTime      @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
@@ -310,6 +315,7 @@ model ClickEvent {
   workspaceId String
   linkId      String
   campaignId  String?
+  qrCodeId    String?
   timestamp   DateTime
   visitorHash String
   ipHash      String?
@@ -376,4 +382,19 @@ model DailyVisitor {
   visitorHash String
 
   @@id([date, linkId, visitorHash])
+}
+
+/// 15-minute click buckets (UTC). They make timelines exact in any timezone (including +5:30 / +5:45
+/// offsets) without scanning ClickEvent; daily/dimension rollups stay UTC-day based.
+model AnalyticsBucket {
+  bucket      DateTime
+  linkId      String
+  isBot       Boolean
+  workspaceId String
+  campaignId  String?
+  clicks      Int      @default(0)
+
+  @@id([bucket, linkId, isBot])
+  @@index([workspaceId, bucket])
+  @@index([campaignId, bucket])
 }
