@@ -6,7 +6,7 @@ import {
   updateMemberSchema,
   updateWorkspaceSchema,
 } from '@go-short/validation';
-import { Router } from 'express';
+import { type Request, type Response, Router } from 'express';
 import { z } from 'zod';
 import type { AppContext } from '../context';
 import { randomToken, sha256 } from '../lib/crypto';
@@ -171,20 +171,45 @@ export function workspacesRouter(ctx: AppContext): Router {
     });
   });
 
-  ws.post('/members/invite', requireWorkspace(ctx, 'members:manage'), async (req, res) => {
+  ws.post(
+    '/members/invite',
+    requireWorkspace(ctx, 'members:manage'),
+    // Each invite sends an email, so cap per workspace to prevent use as a spam relay.
+    rateLimit(ctx, {
+      name: 'invite',
+      limit: 30,
+      windowSeconds: 3600,
+      key: (req) => req.workspace!.id,
+    }),
+    inviteHandler,
+  );
+
+  async function inviteHandler(req: Request, res: Response) {
     const input = inviteMemberSchema.parse(req.body);
     if (!canAssignRole(req.workspace!.role, input.role))
       throw new AppError('FORBIDDEN', 'You cannot grant a role above your own');
-    const token = randomToken(32);
-    const inv = await prisma.invitation.create({
-      data: {
-        workspaceId: req.workspace!.id,
-        email: input.email,
-        role: input.role,
-        tokenHash: sha256(token),
-        expiresAt: new Date(Date.now() + 7 * DAY),
-      },
+    const alreadyMember = await prisma.workspaceMember.findFirst({
+      where: { workspaceId: req.workspace!.id, user: { email: input.email } },
+      select: { id: true },
     });
+    if (alreadyMember)
+      throw new AppError('CONFLICT', 'That person is already a member of this workspace');
+    const token = randomToken(32);
+    // A new invite supersedes any pending one for the same address (old links stop working).
+    const [, inv] = await prisma.$transaction([
+      prisma.invitation.deleteMany({
+        where: { workspaceId: req.workspace!.id, email: input.email, acceptedAt: null },
+      }),
+      prisma.invitation.create({
+        data: {
+          workspaceId: req.workspace!.id,
+          email: input.email,
+          role: input.role,
+          tokenHash: sha256(token),
+          expiresAt: new Date(Date.now() + 7 * DAY),
+        },
+      }),
+    ]);
     await ctx.email.send({
       to: input.email,
       subject: 'You have been invited to a workspace',
@@ -198,13 +223,11 @@ export function workspacesRouter(ctx: AppContext): Router {
       resourceId: inv.id,
       metadata: { email: input.email, role: input.role },
     });
-    res
-      .status(201)
-      .json({
-        success: true,
-        data: { id: inv.id, email: inv.email, role: inv.role, expiresAt: inv.expiresAt },
-      });
-  });
+    res.status(201).json({
+      success: true,
+      data: { id: inv.id, email: inv.email, role: inv.role, expiresAt: inv.expiresAt },
+    });
+  }
 
   ws.patch('/members/:memberId', requireWorkspace(ctx, 'members:manage'), async (req, res) => {
     const { role } = updateMemberSchema.parse(req.body);

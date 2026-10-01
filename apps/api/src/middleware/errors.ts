@@ -41,11 +41,9 @@ export const errorHandler =
 
     if (status >= 500) req.log.error({ err }, 'unhandled error');
     // Stack traces and internal messages never leave the process.
-    res
-      .status(status)
-      .json({
-        success: false,
-        error: { code, message, ...(details ? { details } : {}) },
-        requestId: req.requestId,
-      });
+    res.status(status).json({
+      success: false,
+      error: { code, message, ...(details ? { details } : {}) },
+      requestId: req.requestId,
+    });
   };

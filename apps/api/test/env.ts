@@ -6,3 +6,4 @@ process.env.SESSION_SECRET = 'test-secret-test-secret-test-secret-1234';
 process.env.APP_URL = 'http://localhost:5173';
 process.env.DEFAULT_SHORT_DOMAIN = 'localhost:4001';
 process.env.LOG_LEVEL = 'silent';
+process.env.CORS_ORIGINS = 'http://localhost:5173';
