@@ -9,6 +9,7 @@ import { loadSession } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/errors';
 import { authRouter } from './routes/auth';
 import { healthRouter } from './routes/health';
+import { internalRouter } from './routes/internal';
 import { meRouter } from './routes/me';
 import { workspacesRouter } from './routes/workspaces';
 import './types';
@@ -46,6 +47,7 @@ export function createApp(ctx: AppContext): Express {
   app.use(cookieParser());
 
   app.use(healthRouter(ctx));
+  app.use('/internal', internalRouter(ctx));
 
   const v1 = express.Router();
   v1.use(loadSession(ctx));

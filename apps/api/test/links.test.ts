@@ -375,3 +375,73 @@ describe('creation limits', () => {
     expect(last).toBe(429);
   });
 });
+
+describe('edge cases', () => {
+  it('concurrent creates of the same custom slug: exactly one wins', async () => {
+    const { c, ws } = await setup();
+    const results = await Promise.all(
+      Array.from({ length: 6 }, () => post(c, L(ws), { destinationUrl: dest, slug: 'race-slug' })),
+    );
+    const statuses = results.map((r) => r.status).sort();
+    expect(statuses.filter((s) => s === 201)).toHaveLength(1);
+    expect(statuses.filter((s) => s === 409)).toHaveLength(5);
+    expect(await ctx.prisma.link.count({ where: { slug: 'race-slug' } })).toBe(1);
+  });
+
+  it('a pagination cursor from another workspace leaks nothing and does not error', async () => {
+    const a = await setup();
+    const m = await setup();
+    const foreign = await mk(a.c, a.ws, { title: 'secret' });
+    await mk(m.c, m.ws, { title: 'mine' });
+    const res = await get(m.c, L(m.ws, `?cursor=${foreign.id}`));
+    expect(res.status).toBeLessThan(500);
+    expect(JSON.stringify(res.body)).not.toContain('secret');
+    const bogus = await get(m.c, L(m.ws, '?cursor=does-not-exist'));
+    expect(bogus.status).toBeLessThan(500);
+  });
+
+  it('search treats % and _ literally', async () => {
+    const { c, ws } = await setup();
+    await mk(c, ws, { title: 'plain' });
+    await mk(c, ws, { title: '100% off' });
+    const titles = async (q: string) =>
+      (
+        (await get(c, L(ws, `?q=${encodeURIComponent(q)}`)).expect(200)).body.data as {
+          title: string;
+        }[]
+      ).map((l) => l.title);
+    expect(await titles('%')).toEqual(['100% off']);
+    expect(await titles('_')).toEqual([]);
+  });
+
+  it('records audit entries for domain and link lifecycle', async () => {
+    const { c, ws } = await setup();
+    const dom = await addVerifiedDomain(ctx, c, ws, 'a.client.com');
+    const l = await mk(c, ws, { domainId: dom });
+    await patch(c, L(ws, `/${l.id}`), { title: 'x' }).expect(200);
+    await post(c, L(ws, `/${l.id}/disable`)).expect(200);
+    await post(c, L(ws, `/${l.id}/enable`)).expect(200);
+    await del(c, L(ws, `/${l.id}`)).expect(200);
+    const actions = (await ctx.prisma.auditLog.findMany({ where: { workspaceId: ws } })).map(
+      (a) => a.action,
+    );
+    for (const a of [
+      'DOMAIN_ADDED',
+      'DOMAIN_VERIFIED',
+      'LINK_CREATED',
+      'LINK_UPDATED',
+      'LINK_DISABLED',
+      'LINK_ENABLED',
+      'LINK_DELETED',
+    ]) {
+      expect(actions).toContain(a);
+    }
+  });
+
+  it('is case-sensitive for slugs but reserves words case-insensitively', async () => {
+    const { c, ws } = await setup();
+    await mk(c, ws, { slug: 'Sale2026' });
+    await mk(c, ws, { slug: 'sale2026' });
+    await post(c, L(ws), { destinationUrl: dest, slug: 'LOGIN' }).expect(409);
+  });
+});

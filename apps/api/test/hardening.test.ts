@@ -54,7 +54,14 @@ describe('http hardening', () => {
     expect(bad.headers['access-control-allow-origin']).toBeUndefined();
   });
   it('cookies are Secure in production and always HttpOnly', () => {
-    const prod = { ...ctx, config: loadConfig({ ...process.env, NODE_ENV: 'production' }) };
+    const prod = {
+      ...ctx,
+      config: loadConfig({
+        ...process.env,
+        NODE_ENV: 'production',
+        INTERNAL_API_TOKEN: 'x'.repeat(20),
+      }),
+    };
     expect(cookieOptions(prod)).toMatchObject({ secure: true, httpOnly: true, sameSite: 'lax' });
     expect(cookieOptions(ctx).secure).toBe(false);
   });

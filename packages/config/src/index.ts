@@ -9,44 +9,58 @@ const csv = z.string().transform((v) =>
     .filter(Boolean),
 );
 
-const schema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
-  LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
-  DATABASE_URL: z.string().min(1),
-  REDIS_URL: z.string().min(1),
-  SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
-  APP_URL: z.url(),
-  API_PORT: z.coerce.number().int().default(4000),
-  REDIRECT_PORT: z.coerce.number().int().default(4001),
-  DEFAULT_SHORT_DOMAIN: z.string().min(1),
-  CORS_ORIGINS: csv.default([]),
-  TRUST_PROXY: z.string().default('loopback'),
-  REDIRECT_STATUS: z.coerce
-    .number()
-    .refine((n) => [301, 302, 307, 308].includes(n), 'must be 301, 302, 307 or 308')
-    .default(302),
-  REDIRECT_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
-  RESERVED_SLUGS: csv.default([
-    'api',
-    'admin',
-    'login',
-    'register',
-    'dashboard',
-    'settings',
-    'health',
-    'ready',
-    'metrics',
-    'favicon.ico',
-    'robots.txt',
-  ]),
-  GEOIP_DATABASE_PATH: z.string().default('./storage/geoip/dbip-city-lite.mmdb'),
-  STORAGE_PATH: z.string().default('./storage'),
-  FEATURE_CUSTOM_DOMAINS: bool.default(true),
-  FEATURE_CAMPAIGNS: bool.default(true),
-  FEATURE_QR_LOGOS: bool.default(true),
-  FEATURE_PASSWORD_LINKS: bool.default(true),
-  FEATURE_API: bool.default(true),
-});
+const schema = z
+  .object({
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
+    DATABASE_URL: z.string().min(1),
+    REDIS_URL: z.string().min(1),
+    SESSION_SECRET: z.string().min(32, 'SESSION_SECRET must be at least 32 characters'),
+    APP_URL: z.url(),
+    API_PORT: z.coerce.number().int().default(4000),
+    REDIRECT_PORT: z.coerce.number().int().default(4001),
+    DEFAULT_SHORT_DOMAIN: z.string().min(1),
+    CORS_ORIGINS: csv.default([]),
+    TRUST_PROXY: z.string().default('loopback'),
+    REDIRECT_STATUS: z.coerce
+      .number()
+      .refine((n) => [301, 302, 307, 308].includes(n), 'must be 301, 302, 307 or 308')
+      .default(302),
+    REDIRECT_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
+    RESERVED_SLUGS: csv.default([
+      'api',
+      'admin',
+      'login',
+      'register',
+      'dashboard',
+      'settings',
+      'health',
+      'ready',
+      'metrics',
+      'favicon.ico',
+      'robots.txt',
+    ]),
+    GEOIP_DATABASE_PATH: z.string().default('./storage/geoip/dbip-city-lite.mmdb'),
+    STORAGE_PATH: z.string().default('./storage'),
+    FEATURE_CUSTOM_DOMAINS: bool.default(true),
+    FEATURE_CAMPAIGNS: bool.default(true),
+    FEATURE_QR_LOGOS: bool.default(true),
+    FEATURE_PASSWORD_LINKS: bool.default(true),
+    FEATURE_API: bool.default(true),
+    /** Shared secret for internal endpoints (Caddy on-demand TLS "ask"). Required in production when custom domains are on. */
+    INTERNAL_API_TOKEN: z.string().min(16).optional(),
+  })
+  .superRefine((c, ctx) => {
+    if (c.NODE_ENV === 'production' && c.FEATURE_CUSTOM_DOMAINS && !c.INTERNAL_API_TOKEN) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['INTERNAL_API_TOKEN'],
+        message: 'required in production when FEATURE_CUSTOM_DOMAINS=true (min 16 chars)',
+      });
+    }
+  });
 
 export type Config = z.infer<typeof schema> & {
   isProd: boolean;

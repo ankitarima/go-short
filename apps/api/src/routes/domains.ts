@@ -41,6 +41,15 @@ export function domainsRouter(ctx: AppContext): Router {
     res.json({ success: true, data: rows.map((d) => domainDto(ctx, d)) });
   });
 
+  r.get('/:domainId', requireWorkspace(ctx, 'domains:read'), async (req, res) => {
+    const id = z.string().parse(req.params.domainId);
+    const d = await prisma.domain.findFirst({
+      where: { id, OR: [{ workspaceId: req.workspace!.id }, { workspaceId: null }] },
+    });
+    if (!d) throw new AppError('DOMAIN_NOT_FOUND', 'Domain not found');
+    res.json({ success: true, data: domainDto(ctx, d) });
+  });
+
   r.post(
     '/',
     requireWorkspace(ctx, 'domains:manage'),

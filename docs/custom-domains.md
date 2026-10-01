@@ -32,10 +32,12 @@ Either record verifies the domain. DNS errors (NXDOMAIN, timeouts) count as "not
 
 ## HTTPS
 
-Caddy provisions certificates on demand for custom hostnames, asking the API whether a hostname is a verified domain before issuing (so arbitrary Host headers cannot trigger certificate issuance). See [deployment.md](deployment.md).
+Caddy provisions certificates on demand for custom hostnames. Before issuing, it calls `GET /internal/tls-check?domain=<host>&token=<INTERNAL_API_TOKEN>` on the API, which returns 200 only for the shared domain or a `VERIFIED` custom domain, so arbitrary Host headers cannot trigger certificate issuance. The token is required in production (`INTERNAL_API_TOKEN`), and the proxy must not route `/internal/*` publicly. See [deployment.md](deployment.md).
 
 ## Rules and limits
 
 - Rejected: IP literals, single-label names, `localhost`, ports, and the platform's own hosts (app host, short domain).
 - Disabling a domain purges every cached link under it; re-enabling restores it. Deleting is refused while the domain still has links (deleting would cascade to links and QR codes).
-- **Squatting limitation:** an unverified claim blocks the hostname for other workspaces. A cleanup job will expire unverified domains after 7 days (planned with the cleanup jobs).
+- **Squatting limitation:** an unverified claim blocks the hostname for other workspaces. `deleteStalePendingDomains` releases unverified, link-less claims after 7 days (scheduled by the BullMQ cleanup queue).
+- **DNS drift:** verification is a one-time proof. If a customer later removes their DNS records, the domain stays `VERIFIED` until an admin disables it; periodic re-verification is not implemented.
+- **Slugs** are case-sensitive (`Sale` and `sale` are different links) but reserved words match case-insensitively.

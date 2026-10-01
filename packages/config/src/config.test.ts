@@ -27,4 +27,13 @@ describe('config', () => {
     expect(parseTrustProxy('false')).toBe(false);
     expect(() => parseTrustProxy('true')).toThrow();
   });
+  it('requires an internal token in production when custom domains are enabled', () => {
+    expect(() => loadConfig({ ...base, NODE_ENV: 'production' })).toThrow(/INTERNAL_API_TOKEN/);
+    expect(
+      loadConfig({ ...base, NODE_ENV: 'production', INTERNAL_API_TOKEN: 'x'.repeat(20) }).isProd,
+    ).toBe(true);
+    expect(
+      loadConfig({ ...base, NODE_ENV: 'production', FEATURE_CUSTOM_DOMAINS: 'false' }).isProd,
+    ).toBe(true);
+  });
 });

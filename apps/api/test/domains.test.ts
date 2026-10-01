@@ -66,8 +66,6 @@ describe('domains', () => {
   });
 
   it('refuses to shadow the platform (app host / short domain)', async () => {
-    const c = await registerUser(app);
-    const ws = await createWorkspace(c);
     // APP_URL host is "localhost" (single label, invalid), so exercise the reserved set via a config override.
     const custom = createApp({
       ...ctx,
@@ -94,7 +92,6 @@ describe('domains', () => {
         .send({ hostname });
       expect(res.status).toBe(409);
     }
-    void ws;
   });
 
   it('a hostname cannot belong to two workspaces', async () => {
@@ -202,13 +199,11 @@ describe('domains', () => {
     const c = await registerUser(app);
     const ws = await createWorkspace(c);
     const dom = await addVerifiedDomain(ctx, c, ws, 'a.client.com');
-    const link = (
-      await post(c, `/api/v1/workspaces/${ws}/links`, {
-        destinationUrl: 'https://example.org',
-        domainId: dom,
-        slug: 'sale',
-      }).expect(201)
-    ).body.data;
+    await post(c, `/api/v1/workspaces/${ws}/links`, {
+      destinationUrl: 'https://example.org',
+      domainId: dom,
+      slug: 'sale',
+    }).expect(201);
     await ctx.redis.set('link:a.client.com:sale', '{"cached":true}');
     await patch(c, D(ws, `/${dom}`), { disabled: true }).expect(200);
     expect(await ctx.redis.exists('link:a.client.com:sale')).toBe(0);
@@ -219,7 +214,6 @@ describe('domains', () => {
     expect(
       (await patch(c, D(ws, `/${dom}`), { disabled: false }).expect(200)).body.data.status,
     ).toBe('VERIFIED');
-    void link;
   });
 
   it('refuses to delete a domain that still has links', async () => {

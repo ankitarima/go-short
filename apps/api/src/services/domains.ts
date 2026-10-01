@@ -79,3 +79,24 @@ export function domainDto(ctx: AppContext, d: Domain) {
         },
   };
 }
+
+/**
+ * Releases hostnames claimed but never verified, so a squatter cannot hold a name forever.
+ * Verified domains are never touched. Wired into the BullMQ cleanup queue.
+ */
+export async function deleteStalePendingDomains(
+  ctx: AppContext,
+  olderThanDays = 7,
+): Promise<number> {
+  const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+  const { count } = await ctx.prisma.domain.deleteMany({
+    where: {
+      workspaceId: { not: null },
+      isVerified: false,
+      status: 'PENDING',
+      createdAt: { lt: cutoff },
+      links: { none: {} },
+    },
+  });
+  return count;
+}

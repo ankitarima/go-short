@@ -17,6 +17,9 @@ import { audit } from '../services/audit';
 import { invalidateLinkKeys } from '../services/cache';
 import { reservedHostnames, requireUsableDomain } from '../services/domains';
 
+/** Prisma's `contains` does not escape LIKE wildcards; without this, `%` would match every row. */
+const escapeLike = (v: string) => v.replace(/[\\%_]/g, '\\$&');
+
 const isUniqueViolation = (e: unknown) =>
   typeof e === 'object' && e !== null && 'code' in e && e.code === 'P2002';
 type LinkWithDomain = Link & { domain: Pick<Domain, 'hostname'> };
@@ -142,9 +145,9 @@ export function linksRouter(ctx: AppContext): Router {
       ...(q.q
         ? {
             OR: [
-              { slug: { contains: q.q, mode: 'insensitive' } },
-              { title: { contains: q.q, mode: 'insensitive' } },
-              { destinationUrl: { contains: q.q, mode: 'insensitive' } },
+              { slug: { contains: escapeLike(q.q), mode: 'insensitive' } },
+              { title: { contains: escapeLike(q.q), mode: 'insensitive' } },
+              { destinationUrl: { contains: escapeLike(q.q), mode: 'insensitive' } },
             ],
           }
         : {}),
