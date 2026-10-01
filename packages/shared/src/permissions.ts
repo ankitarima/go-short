@@ -20,6 +20,7 @@ export const PERMISSIONS = [
   'analytics:read',
   'analytics:export',
   'apikeys:manage',
+  'webhooks:manage',
   'audit:read',
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
@@ -48,6 +49,7 @@ const ADMIN: Permission[] = [
   'members:manage',
   'domains:manage',
   'apikeys:manage',
+  'webhooks:manage',
   'audit:read',
 ];
 

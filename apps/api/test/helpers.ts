@@ -1,5 +1,7 @@
 import { loadConfig } from '@go-short/config';
 import { getPrisma } from '@go-short/database';
+import { QUEUES } from '@go-short/shared';
+import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { pino } from 'pino';
 import request from 'supertest';
@@ -9,7 +11,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { DnsResolver } from '../src/services/dns';
-import { LocalStorageProvider } from '../src/services/storage';
+import { LocalStorageProvider } from '@go-short/shared';
 import { ensureSharedDomain } from '../src/services/domains';
 import type { EmailMessage, EmailProvider } from '../src/services/email';
 
@@ -48,13 +50,24 @@ export function makeCtx(): AppContext & { email: CapturingEmail; dns: FakeDns } 
     logger: pino({ level: 'silent' }),
     email: new CapturingEmail(),
     dns: new FakeDns(),
+    queues: {
+      analytics: new Queue(QUEUES.analyticsEvents, {
+        connection: new Redis(process.env.REDIS_URL!, { maxRetriesPerRequest: null }),
+      }),
+      cleanup: new Queue(QUEUES.cleanup, {
+        connection: new Redis(process.env.REDIS_URL!, { maxRetriesPerRequest: null }),
+      }),
+      webhooks: new Queue(QUEUES.webhooks, {
+        connection: new Redis(process.env.REDIS_URL!, { maxRetriesPerRequest: null }),
+      }),
+    },
     storage: new LocalStorageProvider(mkdtempSync(join(tmpdir(), 'go-short-test-'))),
   };
 }
 
 export async function resetDb(ctx: AppContext) {
   await ctx.prisma.$executeRawUnsafe(
-    'TRUNCATE "User","Workspace","ClickEvent","AnalyticsDaily","AnalyticsDimensionDaily","DailyVisitor","AuditLog" CASCADE',
+    'TRUNCATE "User","Workspace","ClickEvent","AnalyticsDaily","AnalyticsDimensionDaily","DailyVisitor","AnalyticsBucket","AuditLog" CASCADE',
   );
   await ctx.redis.flushdb();
   await ctx.prisma.domain.deleteMany();

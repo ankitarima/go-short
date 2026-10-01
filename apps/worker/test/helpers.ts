@@ -37,7 +37,7 @@ export function makeProcessor(over: { now?: () => number } = {}) {
 
 export async function resetDb() {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "User","Workspace","Domain","ClickEvent","AnalyticsDaily","AnalyticsDimensionDaily","DailyVisitor" CASCADE',
+    'TRUNCATE "User","Workspace","Domain","ClickEvent","AnalyticsDaily","AnalyticsDimensionDaily","DailyVisitor","AnalyticsBucket" CASCADE',
   );
 }
 

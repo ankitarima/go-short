@@ -14,6 +14,7 @@ import { hashPassword } from '../lib/password';
 import { requireWorkspace } from '../middleware/auth';
 import { rateLimit } from '../middleware/rateLimit';
 import { audit } from '../services/audit';
+import { emitWebhook } from '../services/webhooks';
 import { analyticsHandlers } from './analytics';
 import { invalidateLinkKeys } from '../services/cache';
 import { reservedHostnames, requireUsableDomain } from '../services/domains';
@@ -230,6 +231,7 @@ export function linksRouter(ctx: AppContext): Router {
         resourceId: link.id,
         metadata: { hostname: link.domain.hostname, slug: link.slug },
       });
+      await emitWebhook(ctx, wsId, 'link.created', { link: dto(link) });
       res.status(201).json({ success: true, data: dto(link) });
     },
   );
@@ -302,6 +304,7 @@ export function linksRouter(ctx: AppContext): Router {
       resourceId: before.id,
       metadata: { fields: Object.keys(input).filter((k) => k !== 'password') },
     });
+    await emitWebhook(ctx, wsId, 'link.updated', { link: dto(after) });
     res.json({ success: true, data: dto(after) });
   });
 
@@ -316,6 +319,9 @@ export function linksRouter(ctx: AppContext): Router {
       resourceType: 'link',
       resourceId: l.id,
       metadata: { hostname: l.domain.hostname, slug: l.slug },
+    });
+    await emitWebhook(ctx, req.workspace!.id, 'link.deleted', {
+      link: { id: l.id, slug: l.slug, hostname: l.domain.hostname },
     });
     res.json({ success: true, data: {} });
   });
@@ -339,6 +345,7 @@ export function linksRouter(ctx: AppContext): Router {
         resourceType: 'link',
         resourceId: l.id,
       });
+      await emitWebhook(ctx, req.workspace!.id, 'link.updated', { link: dto(updated) });
       res.json({ success: true, data: dto(updated) });
     });
   }

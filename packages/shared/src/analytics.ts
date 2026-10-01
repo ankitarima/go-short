@@ -3,6 +3,7 @@ export const QUEUES = {
   analyticsEvents: 'analytics-events',
   analyticsAggregation: 'analytics-aggregation',
   cleanup: 'cleanup',
+  webhooks: 'webhooks',
 } as const;
 
 /**
@@ -39,3 +40,16 @@ export const ANALYTICS_JOB_OPTIONS = {
   removeOnComplete: { age: 3600, count: 1000 },
   removeOnFail: { age: 14 * 24 * 3600, count: 10_000 },
 };
+
+/** Scheduled/manual maintenance tasks run by the worker's `cleanup` queue. */
+export const CLEANUP_TASKS = [
+  'sessions',
+  'stale-domains',
+  'click-retention',
+  'visitors-and-buckets',
+  'audit-logs',
+  'expired-links',
+  'orphan-logos',
+  'failed-jobs',
+] as const;
+export type CleanupTask = (typeof CLEANUP_TASKS)[number];

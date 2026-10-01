@@ -11,6 +11,7 @@ import type { AppContext } from '../context';
 import { requireWorkspace } from '../middleware/auth';
 import { rateLimit } from '../middleware/rateLimit';
 import { audit } from '../services/audit';
+import { emitWebhook } from '../services/webhooks';
 import { invalidateLinkKeys } from '../services/cache';
 import { analyticsHandlers } from './analytics';
 
@@ -95,6 +96,7 @@ export function campaignsRouter(ctx: AppContext): Router {
         resourceId: c.id,
         metadata: { name: c.name },
       });
+      await emitWebhook(ctx, c.workspaceId, 'campaign.created', { campaign: dto(c) });
       res.status(201).json({ success: true, data: dto(c) });
     },
   );

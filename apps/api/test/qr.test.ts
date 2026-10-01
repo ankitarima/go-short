@@ -7,7 +7,7 @@ import { PNG } from 'pngjs';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
 import { contrastRatio } from '../src/qr/render';
-import { LocalStorageProvider } from '../src/services/storage';
+import { LocalStorageProvider } from '@go-short/shared';
 import {
   type Client,
   createWorkspace,

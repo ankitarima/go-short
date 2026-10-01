@@ -116,7 +116,7 @@ async function seedLink(extra: Record<string, unknown> = {}) {
 
 beforeEach(async () => {
   await prisma.$executeRawUnsafe(
-    'TRUNCATE "User","Workspace","Domain","ClickEvent","AnalyticsDaily","AnalyticsDimensionDaily","DailyVisitor" CASCADE',
+    'TRUNCATE "User","Workspace","Domain","ClickEvent","AnalyticsDaily","AnalyticsDimensionDaily","DailyVisitor","AnalyticsBucket" CASCADE',
   );
   const r = conn();
   await r.flushdb();

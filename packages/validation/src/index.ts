@@ -240,3 +240,28 @@ export const createApiKeySchema = z.object({
     .refine((d) => d.getTime() > Date.now(), 'expiresAt must be in the future')
     .nullish(),
 });
+
+// ---- webhooks ----
+import { WEBHOOK_EVENTS } from '@go-short/shared';
+const webhookEvents = z
+  .array(z.enum(WEBHOOK_EVENTS))
+  .min(1)
+  .max(WEBHOOK_EVENTS.length)
+  .transform((a) => [...new Set(a)]);
+export const createWebhookSchema = z.object({
+  url: z.string().trim().min(1).max(2048),
+  events: webhookEvents,
+});
+export const updateWebhookSchema = z
+  .object({ url: z.string().trim().min(1).max(2048), events: webhookEvents, isActive: z.boolean() })
+  .partial()
+  .refine((o) => Object.keys(o).length > 0, 'No fields to update');
+
+// ---- admin ----
+export const adminListQuery = cursorQuery.extend({
+  q: z.string().trim().max(100).optional(),
+  workspaceId: z.string().max(50).optional(),
+  status: z.enum(['PENDING', 'VERIFIED', 'DISABLED']).optional(),
+  action: z.string().trim().max(60).optional(),
+});
+export const adminUpdateUserSchema = z.object({ systemRole: z.enum(['USER', 'ADMIN']) });

@@ -7,6 +7,7 @@ import { pinoHttp } from 'pino-http';
 import type { AppContext } from './context';
 import { loadSession, requireApiKey } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/errors';
+import { adminRouter } from './routes/admin';
 import { analyticsRouter } from './routes/analytics';
 import { authRouter } from './routes/auth';
 import { campaignsRouter } from './routes/campaigns';
@@ -59,6 +60,7 @@ export function createApp(ctx: AppContext): Express {
   v1.use('/auth', authRouter(ctx));
   v1.use('/me', meRouter(ctx));
   v1.use('/workspaces', workspacesRouter(ctx));
+  v1.use('/admin', adminRouter(ctx));
 
   // Flat, API-key-only routes (`/api/v1/links`, ...). The workspace is the key's own, never a client claim;
   // the same routers and permission checks as the nested routes are used, with the key's role.

@@ -1,5 +1,7 @@
 import { loadConfig } from '@go-short/config';
 import { disconnectPrisma, getPrisma } from '@go-short/database';
+import { QUEUES } from '@go-short/shared';
+import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { pino } from 'pino';
 import { createApp } from './app';
@@ -7,7 +9,7 @@ import type { AppContext } from './context';
 import { systemDnsResolver } from './services/dns';
 import { ensureSharedDomain } from './services/domains';
 import { ConsoleEmailProvider } from './services/email';
-import { LocalStorageProvider } from './services/storage';
+import { LocalStorageProvider } from '@go-short/shared';
 
 const config = loadConfig();
 const logger = pino({
@@ -24,6 +26,12 @@ const logger = pino({
 const redis = new Redis(config.REDIS_URL, { maxRetriesPerRequest: 2, enableOfflineQueue: false });
 redis.on('error', (err) => logger.error({ err }, 'redis error'));
 const prisma = getPrisma();
+// Separate connection for queues: fail fast instead of queueing commands while Redis is down.
+const queueConnection = new Redis(config.REDIS_URL, {
+  maxRetriesPerRequest: 2,
+  enableOfflineQueue: false,
+});
+queueConnection.on('error', (err) => logger.error({ err }, 'queue redis error'));
 
 const ctx: AppContext = {
   config,
@@ -33,6 +41,11 @@ const ctx: AppContext = {
   email: new ConsoleEmailProvider(logger, config.isProd),
   dns: systemDnsResolver,
   storage: new LocalStorageProvider(config.STORAGE_PATH),
+  queues: {
+    analytics: new Queue(QUEUES.analyticsEvents, { connection: queueConnection }),
+    cleanup: new Queue(QUEUES.cleanup, { connection: queueConnection }),
+    webhooks: new Queue(QUEUES.webhooks, { connection: queueConnection }),
+  },
 };
 await ensureSharedDomain(ctx);
 const app = createApp(ctx);
@@ -43,7 +56,7 @@ const server = app.listen(config.API_PORT, () =>
 async function shutdown(signal: string) {
   logger.info({ signal }, 'shutting down');
   server.close();
-  await Promise.allSettled([disconnectPrisma(), redis.quit()]);
+  await Promise.allSettled([disconnectPrisma(), redis.quit(), queueConnection.quit()]);
   process.exit(0);
 }
 process.on('SIGTERM', () => void shutdown('SIGTERM'));

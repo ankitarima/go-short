@@ -4,6 +4,13 @@ import { z } from 'zod';
 
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
 
+/** Empty/absent => undefined (feature off); otherwise a positive integer number of days. */
+const optionalDays = z
+  .string()
+  .optional()
+  .transform((v) => (v === undefined || v.trim() === '' ? undefined : Number(v)))
+  .pipe(z.number().int().min(1).max(36500).optional());
+
 const csv = z.string().transform((v) =>
   v
     .split(',')
@@ -53,6 +60,15 @@ const schema = z
     ANALYTICS_BUFFER_MAX: z.coerce.number().int().min(1000).max(1_000_000).default(20_000),
     /** Requests per minute allowed per API key (fixed window). */
     API_KEY_RATE_LIMIT_PER_MINUTE: z.coerce.number().int().min(1).max(100_000).default(600),
+    /** Scheduled cleanup jobs run in the worker. Set false to disable all of them. */
+    CLEANUP_ENABLED: bool.default(true),
+    /** Optional retention: unset (the default) means "keep forever". */
+    AUDIT_LOG_RETENTION_DAYS: optionalDays,
+    EXPIRED_LINK_DELETE_AFTER_DAYS: optionalDays,
+    /** 15-minute buckets only exist to serve timezone-exact timelines; older ones can go. */
+    BUCKET_RETENTION_DAYS: z.coerce.number().int().min(31).max(3650).default(400),
+    /** Dev/test only: allow http:// and private-network webhook targets (disables the SSRF guard). */
+    WEBHOOK_ALLOW_INSECURE: bool.default(false),
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
     FEATURE_CUSTOM_DOMAINS: bool.default(true),
     FEATURE_CAMPAIGNS: bool.default(true),

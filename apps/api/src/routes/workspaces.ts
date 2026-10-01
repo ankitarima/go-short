@@ -18,6 +18,7 @@ import { apiKeysRouter } from './apiKeys';
 import { campaignsRouter } from './campaigns';
 import { linksRouter } from './links';
 import { qrRouter } from './qr';
+import { webhooksRouter } from './webhooks';
 import { audit } from '../services/audit';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -143,6 +144,7 @@ export function workspacesRouter(ctx: AppContext): Router {
   ws.use('/campaigns', campaignsRouter(ctx));
   ws.use('/qr', qrRouter(ctx));
   ws.use('/api-keys', apiKeysRouter(ctx));
+  ws.use('/webhooks', webhooksRouter(ctx));
 
   ws.get('/', requireWorkspace(ctx, 'workspace:read'), async (req, res) => {
     const w = await prisma.workspace.findUniqueOrThrow({ where: { id: req.workspace!.id } });

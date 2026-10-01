@@ -7,6 +7,7 @@ import { randomToken } from '../lib/crypto';
 import { requireWorkspace } from '../middleware/auth';
 import { rateLimit } from '../middleware/rateLimit';
 import { audit } from '../services/audit';
+import { emitWebhook } from '../services/webhooks';
 import { invalidateDomain } from '../services/cache';
 import { checkDomainDns } from '../services/dns';
 import { cnameTarget, domainDto, reservedHostnames } from '../services/domains';
@@ -127,6 +128,10 @@ export function domainsRouter(ctx: AppContext): Router {
         resourceType: 'domain',
         resourceId: d.id,
         metadata: { method: check.method },
+      });
+      // Only public fields: never the verification token.
+      await emitWebhook(ctx, d.workspaceId!, 'domain.verified', {
+        domain: { id: d.id, hostname: d.hostname, status: updated.status },
       });
       res.json({
         success: true,
