@@ -212,6 +212,15 @@ export const operations: Op[] = [
   },
   {
     method: 'get',
+    path: '/workspaces/{workspaceId}/overview',
+    scope: 'workspace',
+    tag: 'Workspaces',
+    summary: 'Workspace totals (links, campaigns, QR codes, domains, members)',
+    permission: 'workspace:read',
+    response: ref('Overview'),
+  },
+  {
+    method: 'get',
     path: '/workspaces/{workspaceId}/members',
     scope: 'workspace',
     tag: 'Members',
@@ -565,6 +574,19 @@ export const operations: Op[] = [
     rawBody: { contentTypes: ['image/png', 'image/jpeg'], description: 'The image bytes.' },
     status: 201,
     response: ref('QrLogo'),
+  },
+  {
+    method: 'post',
+    path: '/qr/preview',
+    scope: 'workspace',
+    flat: true,
+    tag: 'QR codes',
+    summary: 'Render a QR code without saving it',
+    description:
+      'Stateless preview used by the designer: same options as creation, returns the image bytes and persists nothing. 240 per minute.',
+    permission: 'qr:read',
+    body: v.previewQrSchema,
+    binary: { contentTypes: ['image/svg+xml', 'image/png'], description: 'The QR image.' },
   },
   {
     method: 'get',

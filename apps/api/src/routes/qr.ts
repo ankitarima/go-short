@@ -1,6 +1,12 @@
 import type { Prisma, QRCode } from '@go-short/database';
 import { AppError } from '@go-short/shared';
-import { createQrSchema, listQrQuery, qrImageQuery, updateQrSchema } from '@go-short/validation';
+import {
+  createQrSchema,
+  listQrQuery,
+  previewQrSchema,
+  qrImageQuery,
+  updateQrSchema,
+} from '@go-short/validation';
 import express, { Router, type Response } from 'express';
 import { z } from 'zod';
 import type { AppContext } from '../context';
@@ -153,6 +159,59 @@ export function qrRouter(ctx: AppContext): Router {
       const logoPath = `logos/${req.workspace!.id}/${randomToken(18)}.png`;
       await storage.put(logoPath, png);
       res.status(201).json({ success: true, data: { logoPath, bytes: png.length } });
+    },
+  );
+
+  // ---- stateless preview (used by the designer; persists nothing) --------------------------------
+  r.post(
+    '/preview',
+    requireWorkspace(ctx, 'qr:read'),
+    rateLimit(ctx, {
+      name: 'qr-preview',
+      limit: 240,
+      windowSeconds: 60,
+      key: (req) => req.workspace!.id,
+    }),
+    async (req, res) => {
+      const input = previewQrSchema.parse(req.body);
+      const wsId = req.workspace!.id;
+      let url = 'https://example.com/your-short-link?qr=preview';
+      if (input.linkId) {
+        const link = await prisma.link.findFirst({
+          where: { id: input.linkId, workspaceId: wsId },
+          select: { slug: true, domain: { select: { hostname: true } } },
+        });
+        if (!link) throw new AppError('LINK_NOT_FOUND', 'Link not found');
+        const host = link.domain.hostname;
+        url = `${host.includes(':') || host === 'localhost' ? 'http' : 'https'}://${host}/${link.slug}?qr=preview`;
+      }
+      let logoPath = input.logoPath;
+      if (input.logoFrom) {
+        // Scoped by workspace: another tenant's QR id is simply "not found".
+        const from = await prisma.qRCode.findFirst({
+          where: { id: input.logoFrom, workspaceId: wsId },
+          select: { logoPath: true },
+        });
+        if (!from) throw new AppError('NOT_FOUND', 'QR code not found');
+        logoPath = from.logoPath;
+      }
+      const logo = await loadLogo(wsId, logoPath);
+      const base: QrStyle = {
+        size: input.size,
+        margin: input.margin,
+        errorCorrection: input.errorCorrection,
+        foregroundColor: input.foregroundColor,
+        backgroundColor: input.backgroundColor,
+      };
+      assertScannable(base);
+      let rendered;
+      try {
+        rendered = await renderQr(url, base, input.format, logo);
+      } catch (err) {
+        if (err instanceof AppError) throw err;
+        throw new AppError('VALIDATION_ERROR', 'Could not generate a QR code with these settings');
+      }
+      send(res, rendered, `qr-preview.${input.format}`, false);
     },
   );
 

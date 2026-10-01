@@ -2,13 +2,13 @@
 
 Single place to see what is done, what is partial and what is not started. **Update this file in the same commit that changes a status.** Statuses are verified against the repository, not aspirational.
 
-_Last updated: 2026-10-01, at the end of phase 11. The whole backend is built; the frontend, deployment, CI, load tests and README remain._
+_Last updated: 2026-10-01, at the end of phase 13. Backend and frontend are built; security review/metrics, deployment, CI/E2E, load tests and the final README remain._
 
 Legend: ✅ done · 🟡 partial · ⬜ not started
 
 ## Phases
 
-The spec's 30-step order (section 120) is grouped into phases. **Phases 1-11 are complete.**
+The spec's 30-step order (section 120) is grouped into phases. **Phases 1-13 are complete.**
 
 | #   | Phase                                                                                                                             | Spec steps      | Status |
 | --- | --------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------ |
@@ -23,8 +23,8 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-11 are
 | 9   | API keys: hashed, role-scoped, revocable, per-key rate limits, flat `/api/v1/*` routes                                            | 22              | ✅     |
 | 10  | Operations backend: cleanup/retention jobs, system-admin API, failed-job inspection, signed webhooks                              | (cross-cutting) | ✅     |
 | 11  | OpenAPI 3.1 document, `/docs` UI, route-drift and response-conformance tests, API guide                                           | 23              | ✅     |
-| 12  | Frontend foundation: Vite/React/Tailwind/shadcn setup, routing, auth screens, layout, dashboard                                   | 17              | ⬜     |
-| 13  | Frontend features: links, campaigns, QR designer, domains wizard, analytics, team, API keys, settings, admin                      | 17, 21          | ⬜     |
+| 12  | Frontend foundation: Vite/React/Tailwind/shadcn setup, routing, auth screens, layout, dashboard                                   | 17              | ✅     |
+| 13  | Frontend features: links, campaigns, QR designer, domains wizard, analytics, team, API keys, settings, admin                      | 17, 21          | ✅     |
 | 14  | Security hardening review and Prometheus metrics + Grafana dashboards                                                             | 24-25           | ⬜     |
 | 15  | Docker: production Dockerfiles, compose (dev/prod), Caddy, Coolify docs, backup/restore scripts                                   | 26              | ⬜     |
 | 16  | CI (GitHub Actions), Husky/lint-staged, Playwright E2E                                                                            | 27              | ⬜     |
@@ -38,7 +38,7 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-11 are
 | Typecheck (strict, all workspaces)                                             | ✅ clean                                                                                                  |
 | ESLint (no `any`)                                                              | ✅ clean                                                                                                  |
 | Production builds (api, redirect, worker)                                      | ✅                                                                                                        |
-| Tests                                                                          | ✅ 484 passing (api 255, redirect 46, worker 76, pipeline 6, shared 87, validation 8, config 6)           |
+| Tests                                                                          | ✅ 586 passing (api 261, web 96, redirect 46, worker 76, pipeline 6, shared 87, validation 8, config 6)   |
 | Security tests (IDOR, role matrix, CSRF, rate limits, host abuse, SSRF, keys)  | ✅ for everything built so far, with mutation checks on the critical protections                          |
 | Failure tests (Redis down, Postgres down, queue down, publisher/worker errors) | ✅                                                                                                        |
 | API docs accuracy (valid OpenAPI, route drift, real-response conformance)      | ✅ enforced by tests                                                                                      |
@@ -50,13 +50,13 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-11 are
 
 ### Platform and multi-tenancy
 
-| Requirement                                                                                 | Status | Notes                                                                         |
-| ------------------------------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------- |
-| Monorepo (npm workspaces): api, redirect, worker, web; config, database, shared, validation | 🟡     | `apps/web` does not exist yet; a `tests/` workspace holds cross-service tests |
-| Workspaces, members, roles OWNER/ADMIN/MEMBER/VIEWER, explicit permissions                  | ✅     | `packages/shared/src/permissions.ts`                                          |
-| Tenant isolation (no client-supplied workspace trust, IDOR tests)                           | ✅     | auth, workspaces, domains, links, campaigns, QR, analytics, keys, webhooks    |
-| Invitations                                                                                 | ✅     | email delivery is the console provider only                                   |
-| Audit log (cursor-paginated, retention optional)                                            | ✅     | never contains secrets; webhook entries record the host only                  |
+| Requirement                                                                                 | Status | Notes                                                                      |
+| ------------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------- |
+| Monorepo (npm workspaces): api, redirect, worker, web; config, database, shared, validation | ✅     | a `tests/` workspace holds cross-service tests                             |
+| Workspaces, members, roles OWNER/ADMIN/MEMBER/VIEWER, explicit permissions                  | ✅     | `packages/shared/src/permissions.ts`                                       |
+| Tenant isolation (no client-supplied workspace trust, IDOR tests)                           | ✅     | auth, workspaces, domains, links, campaigns, QR, analytics, keys, webhooks |
+| Invitations                                                                                 | ✅     | email delivery is the console provider only                                |
+| Audit log (cursor-paginated, retention optional)                                            | ✅     | never contains secrets; webhook entries record the host only               |
 
 ### Auth and security
 
@@ -144,7 +144,7 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-11 are
 
 ### Frontend (`apps/web`)
 
-Everything is ⬜ (phases 12-13): login/register, dashboard, links, campaigns, QR designer, domains wizard, analytics, team, API keys, settings, admin, dark mode, empty/loading/error states.
+✅ (phases 12-13), see [frontend.md](frontend.md): login/register/reset/verify/invite, onboarding, dashboard, links, campaigns, QR designer with live preview, domains wizard, analytics (filters, timezone, CSV export), team, API keys, settings (general, privacy, security, webhooks, audit log), admin, dark mode, empty/loading/error states, responsive down to phone width. 96 Vitest tests (MSW, real route table). Browser E2E is phase 16.
 
 ### Documentation
 
@@ -180,5 +180,5 @@ Everything is ⬜ (phases 12-13): login/register, dashboard, links, campaigns, Q
 - In a non-UTC timezone, unique visitors and breakdowns are aggregated by UTC day and can differ slightly from the exact timeline at the edges of the range (stated in `meta.notes`).
 - Webhook emission is best-effort (never fails the originating request; lost if the queue is down at that moment).
 - Email delivery is console-only; reset and invitation links are not delivered in production until an `EmailProvider` adapter exists.
-- Intermittent test anomalies seen once each and **never reproduced** in many reruns: a pipeline test failure, a 10-minute hang of a redirect test, and two failures in `links.test.ts` (a 404 on link creation and a rate-limit assertion). The link tests now report full diagnostics if it recurs; cause unknown.
+- Intermittent test anomalies seen once each and **never reproduced** in many reruns: a pipeline test failure, a 10-minute hang of a redirect test, and two failures in `links.test.ts` (a 404 on link creation and a rate-limit assertion). The link tests now report full diagnostics if it recurs; cause unknown. Seen once more in `qr.test.ts` (a 404 on link creation, an `ECONNRESET`) during a full run that overlapped with stopping local dev servers; passed on immediate rerun.
 - The 2,000 RPS burst requirement is not yet verified on production-like hardware (phase 17).

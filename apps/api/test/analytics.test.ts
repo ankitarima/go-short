@@ -549,3 +549,25 @@ describe('CSV export', () => {
 });
 
 void (null as unknown as Client);
+
+describe('unique visitors never exceed clicks', () => {
+  it('is clamped when UTC-day uniques overlap a non-UTC range edge', async () => {
+    const { c, ws, mkLink } = await setup();
+    const l = await mkLink('alpha');
+    // Two visitors on UTC Sep 10; in Pacific/Auckland (UTC+12) only the second falls on local Sep 10.
+    await processor().process([
+      ev(l.id, ws, { timestamp: Date.UTC(2026, 8, 10, 0, 30), ip: '1.1.1.1' }), // local Sep 10, 12:30 (inside)
+      ev(l.id, ws, { timestamp: Date.UTC(2026, 8, 9, 23, 30), ip: '1.1.1.2' }), // local Sep 10, 11:30 (inside)
+      ev(l.id, ws, { timestamp: Date.UTC(2026, 8, 10, 23, 30), ip: '1.1.1.3' }), // local Sep 11, 11:30 (outside)
+      ev(l.id, ws, { timestamp: Date.UTC(2026, 8, 10, 23, 40), ip: '1.1.1.4' }), // local Sep 11 (outside)
+    ]);
+    const d = (
+      await get(
+        c,
+        A(ws, q({ from: '2026-09-10', to: '2026-09-10', timezone: 'Pacific/Auckland' })),
+      ).expect(200)
+    ).body.data;
+    expect(d.summary.clicks).toBe(2);
+    expect(d.summary.uniqueVisitors).toBeLessThanOrEqual(d.summary.clicks);
+  });
+});

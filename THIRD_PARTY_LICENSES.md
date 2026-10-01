@@ -29,6 +29,17 @@ re-verify when upgrading (`npm ls`, `npm view <pkg> license`). Transitive depend
 | jpeg-js                                    | 0.4.4           | BSD-3-Clause              | JPEG decode for logo uploads (pure JS)                          |
 | swagger-ui-dist                            | 5.33.0          | Apache-2.0                | API reference UI served at `/docs` (bundled, no CDN)            |
 
+### Frontend (`apps/web`, bundled into the browser app)
+
+| Package                                                                                                                 | License    | Notes                                                                              |
+| ----------------------------------------------------------------------------------------------------------------------- | ---------- | ---------------------------------------------------------------------------------- |
+| react, react-dom, react-router-dom, @tanstack/react-query, recharts, zustand, sonner, clsx, tailwind-merge, @radix-ui/* | MIT        | UI framework, routing, data, charts, state, toasts, primitives                     |
+| class-variance-authority                                                                                                | Apache-2.0 | component variants                                                                 |
+| lucide-react                                                                                                            | ISC        | icons                                                                              |
+| @fontsource-variable/geist, @fontsource-variable/geist-mono                                                             | OFL-1.1    | Geist fonts, self-hosted (the font license applies to the font files, not the app) |
+
+Build/test only: vite, @vitejs/plugin-react, tailwindcss, @tailwindcss/vite, msw, @testing-library/*, jsdom (MIT); @playwright/test (Apache-2.0, used for development screenshots).
+
 ## Development dependencies
 
 typescript (Apache-2.0), eslint, typescript-eslint, prettier, vitest, tsup, tsx, supertest, ajv, ajv-formats and @seriousme/openapi-schema-validator (all MIT); jsqr (Apache-2.0, decodes QR codes in tests to prove they scan).

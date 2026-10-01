@@ -148,7 +148,9 @@ function shape(
       clicks: r.includeBots ? human + bot : human,
       humanClicks: human,
       botClicks: bot,
-      uniqueVisitors: num(summary.uniques),
+      // Uniques come from UTC-day rollups while clicks are exact for the requested timezone, so at the
+      // edges of a non-UTC range uniques could exceed clicks. A visitor count can never exceed the clicks.
+      uniqueVisitors: Math.min(num(summary.uniques), r.includeBots ? human + bot : human),
       qrScans: num(summary.qr),
     },
     timeline,

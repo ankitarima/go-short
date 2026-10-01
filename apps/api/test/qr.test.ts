@@ -493,3 +493,107 @@ describe('LocalStorageProvider', () => {
     expect(() => readFileSync(join(dir, '..', 'x'))).toThrow();
   });
 });
+
+describe('QR preview (stateless)', () => {
+  const preview = (c: Client, ws: string, body: object) =>
+    c.agent
+      .post(Q(ws, '/preview'))
+      .set('X-CSRF-Token', c.csrf)
+      .send(body)
+      .buffer(true)
+      .parse((res, cb) => {
+        const chunks: Buffer[] = [];
+        res.on('data', (d: Buffer) => chunks.push(d));
+        res.on('end', () => cb(null, Buffer.concat(chunks)));
+      });
+
+  it('returns a scannable image for the chosen settings and persists nothing', async () => {
+    const { c, ws, link } = await setup();
+    const res = await preview(c, ws, {
+      linkId: link.id,
+      format: 'png',
+      size: 400,
+      foregroundColor: '#112233',
+    }).expect(200);
+    expect(res.headers['content-type']).toBe('image/png');
+    expect(res.headers['cache-control']).toBe('private, no-store');
+    expect(scan(res.body as Buffer)).toBe(`${link.shortUrl}?qr=preview`);
+    expect(await ctx.prisma.qRCode.count()).toBe(0);
+    const svg = await preview(c, ws, { format: 'svg' }).expect(200);
+    expect(svg.headers['content-type']).toMatch(/svg/);
+    expect((svg.body as Buffer).toString()).toContain('<svg');
+  });
+
+  it('applies the same safety rules as creation (scannability, ranges, foreign links and logos)', async () => {
+    const a = await setup();
+    const b = await setup();
+    await preview(a.c, a.ws, { foregroundColor: '#FFFFFF', backgroundColor: '#000000' }).expect(
+      400,
+    );
+    await preview(a.c, a.ws, { size: 99999 }).expect(400);
+    await preview(a.c, a.ws, { linkId: b.link.id }).expect(404);
+    const { logoPath } = (await upload(b.c, b.ws, solidPng(40, 40), 'image/png').expect(201)).body
+      .data;
+    await preview(a.c, a.ws, { logoPath }).expect(404);
+    await preview(b.c, b.ws, { logoPath, format: 'png' }).expect(200);
+  });
+
+  it('is available to viewers (read-only) but not to non-members', async () => {
+    const { c: owner, ws } = await setup();
+    const viewer = await registerUser(app);
+    await post(owner, `/api/v1/workspaces/${ws}/members/invite`, {
+      email: viewer.email,
+      role: 'VIEWER',
+    }).expect(201);
+    await post(viewer, '/api/v1/workspaces/invitations/accept', {
+      token: ctx.email.lastToken(),
+    }).expect(200);
+    await preview(viewer, ws, {}).expect(200);
+    const stranger = await registerUser(app);
+    await preview(stranger, ws, {}).expect(404);
+  });
+});
+
+describe('QR preview reusing a saved logo', () => {
+  it('previews with the saved QR’s logo without exposing its path; foreign QR ids are 404', async () => {
+    const a = await setup();
+    const b = await setup();
+    const { logoPath } = (
+      await upload(a.c, a.ws, solidPng(60, 60, [20, 120, 220, 255]), 'image/png').expect(201)
+    ).body.data;
+    const qr = (
+      await post(a.c, Q(a.ws), {
+        name: 'Logo QR',
+        linkId: a.link.id,
+        format: 'png',
+        logoPath,
+      }).expect(201)
+    ).body.data;
+    expect(JSON.stringify(qr)).not.toContain('logos/');
+    const res = await a.c.agent
+      .post(Q(a.ws, '/preview'))
+      .set('X-CSRF-Token', a.c.csrf)
+      .send({
+        linkId: a.link.id,
+        format: 'png',
+        size: 600,
+        logoFrom: qr.id,
+        foregroundColor: '#102030',
+      })
+      .buffer(true)
+      .parse((r, cb) => {
+        const ch: Buffer[] = [];
+        r.on('data', (d: Buffer) => ch.push(d));
+        r.on('end', () => cb(null, Buffer.concat(ch)));
+      })
+      .expect(200);
+    const img = PNG.sync.read(res.body as Buffer);
+    const mid = Math.floor(img.width / 2);
+    const px = (x: number, y: number) => [
+      ...img.data.subarray((y * img.width + x) * 4, (y * img.width + x) * 4 + 3),
+    ];
+    expect(px(mid, mid)).toEqual([20, 120, 220]); // the logo's colour sits in the centre
+    expect(scan(res.body as Buffer)).toBe(`${a.link.shortUrl}?qr=preview`);
+    await post(b.c, Q(b.ws, '/preview'), { logoFrom: qr.id }).expect(404);
+  });
+});

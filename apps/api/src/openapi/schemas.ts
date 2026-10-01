@@ -268,6 +268,7 @@ export const schemas: Record<string, S> = {
       notes: arr(str()),
     }),
   }),
+  Overview: obj({ links: int(), campaigns: int(), qrCodes: int(), domains: int(), members: int() }),
   Health: obj({ status: str() }),
   Ready: obj({ status: str(), checks: obj({ postgres: str(), redis: str() }) }),
   AdminStats: obj({

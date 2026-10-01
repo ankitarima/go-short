@@ -192,3 +192,25 @@ describe('workspaces', () => {
     expect(ok.body.data).toMatchObject({ timezone: 'Asia/Kolkata', retentionDays: 90 });
   });
 });
+
+describe('workspace overview', () => {
+  it('returns scoped totals and is only visible to members', async () => {
+    const a = await registerUser(app);
+    const b = await registerUser(app);
+    const wa = (await createWs(a, 'A')).id;
+    const wb = (await createWs(b, 'B')).id;
+    await post(a, `/api/v1/workspaces/${wa}/links`, {
+      destinationUrl: 'https://example.org/1',
+    }).expect(201);
+    await post(a, `/api/v1/workspaces/${wa}/links`, {
+      destinationUrl: 'https://example.org/2',
+    }).expect(201);
+    await post(a, `/api/v1/workspaces/${wa}/campaigns`, { name: 'C' }).expect(201);
+    await post(b, `/api/v1/workspaces/${wb}/links`, {
+      destinationUrl: 'https://example.org/3',
+    }).expect(201);
+    const res = await a.agent.get(`/api/v1/workspaces/${wa}/overview`).expect(200);
+    expect(res.body.data).toEqual({ links: 2, campaigns: 1, qrCodes: 0, domains: 0, members: 1 });
+    await b.agent.get(`/api/v1/workspaces/${wa}/overview`).expect(404);
+  });
+});

@@ -151,6 +151,19 @@ export function workspacesRouter(ctx: AppContext): Router {
     res.json({ success: true, data: { ...pubWorkspace(w), role: req.workspace!.role } });
   });
 
+  /** Totals for the dashboard header. Cheap indexed counts, always scoped to the verified workspace. */
+  ws.get('/overview', requireWorkspace(ctx, 'workspace:read'), async (req, res) => {
+    const workspaceId = req.workspace!.id;
+    const [links, campaigns, qrCodes, domains, members] = await Promise.all([
+      prisma.link.count({ where: { workspaceId } }),
+      prisma.campaign.count({ where: { workspaceId } }),
+      prisma.qRCode.count({ where: { workspaceId } }),
+      prisma.domain.count({ where: { workspaceId } }),
+      prisma.workspaceMember.count({ where: { workspaceId } }),
+    ]);
+    res.json({ success: true, data: { links, campaigns, qrCodes, domains, members } });
+  });
+
   ws.patch('/', requireWorkspace(ctx, 'workspace:update'), async (req, res) => {
     const input = updateWorkspaceSchema.parse(req.body);
     const w = await prisma.workspace.update({ where: { id: req.workspace!.id }, data: input });

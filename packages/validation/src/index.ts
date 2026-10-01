@@ -265,3 +265,17 @@ export const adminListQuery = cursorQuery.extend({
   action: z.string().trim().max(60).optional(),
 });
 export const adminUpdateUserSchema = z.object({ systemRole: z.enum(['USER', 'ADMIN']) });
+
+export const previewQrSchema = z.object({
+  /** Optional: when given, the preview encodes that link's real short URL. */
+  linkId: z.string().min(1).max(50).nullish(),
+  /** Reuse the logo of this saved QR code (storage paths are never exposed to clients). */
+  logoFrom: z.string().min(1).max(50).nullish(),
+  format: qrOptions.format.default('svg'),
+  size: qrOptions.size.default(512),
+  margin: qrOptions.margin.default(2),
+  errorCorrection: qrOptions.errorCorrection.default('M'),
+  foregroundColor: qrOptions.foregroundColor.default('#000000'),
+  backgroundColor: qrOptions.backgroundColor.default('#FFFFFF'),
+  logoPath: z.string().min(1).max(200).nullish(),
+});
