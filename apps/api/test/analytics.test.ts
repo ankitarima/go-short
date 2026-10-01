@@ -1,7 +1,9 @@
-import type { AnalyticsEvent } from '@go-short/shared';
+import { AppError, type AnalyticsEvent } from '@go-short/shared';
+import { analyticsQuery } from '@go-short/validation';
 import { pino } from 'pino';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { createApp } from '../src/app';
+import { queryAnalytics } from '../src/services/analytics';
 import { csvCell } from '../src/services/export';
 import { Hasher } from '../../worker/src/enrich';
 import { BatchProcessor } from '../../worker/src/processBatch';
@@ -361,6 +363,37 @@ describe('validation and abuse', () => {
     const { c, ws } = await setup();
     await get(c, A(ws, q({ linkId: 'x\'; DROP TABLE "Link";--' }))).expect(404);
     expect(await ctx.prisma.link.count()).toBe(0);
+  });
+});
+
+describe('database failures are not disguised as validation errors', () => {
+  const query = (over: Record<string, string> = {}) =>
+    analyticsQuery.parse({ from: '2026-09-01', to: '2026-09-02', ...over });
+  const settings = { timezone: 'UTC', filterBots: false };
+
+  it('a database error propagates as an error (a 5xx), not as "Unsupported timezone"', async () => {
+    const flaky = new Proxy(ctx.prisma, {
+      get(t, k) {
+        if (k === '$queryRaw')
+          return () => Promise.reject(new Error('Connection terminated unexpectedly'));
+        return Reflect.get(t, k);
+      },
+    });
+    const broken = { ...ctx, prisma: flaky as typeof ctx.prisma };
+    await expect(queryAnalytics(broken, { workspaceId: 'w' }, query(), settings)).rejects.toThrow(
+      'Connection terminated unexpectedly',
+    );
+  });
+
+  it('a timezone PostgreSQL rejects is still reported as a validation error (bypassing the schema check)', async () => {
+    const err = await queryAnalytics(
+      ctx,
+      { workspaceId: 'w' },
+      { ...query(), timezone: 'Mars/Base' },
+      settings,
+    ).catch((e) => e);
+    expect(err).toBeInstanceOf(AppError);
+    expect(err).toMatchObject({ code: 'VALIDATION_ERROR', message: 'Unsupported timezone' });
   });
 });
 

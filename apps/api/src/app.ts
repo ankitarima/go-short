@@ -11,6 +11,7 @@ import { adminRouter } from './routes/admin';
 import { analyticsRouter } from './routes/analytics';
 import { authRouter } from './routes/auth';
 import { campaignsRouter } from './routes/campaigns';
+import { docsRouter } from './routes/docs';
 import { domainsRouter } from './routes/domains';
 import { linksRouter } from './routes/links';
 import { qrRouter } from './routes/qr';
@@ -54,6 +55,7 @@ export function createApp(ctx: AppContext): Express {
 
   app.use(healthRouter(ctx));
   app.use('/internal', internalRouter(ctx));
+  app.use(docsRouter(ctx));
 
   const v1 = express.Router();
   v1.use(loadSession(ctx));

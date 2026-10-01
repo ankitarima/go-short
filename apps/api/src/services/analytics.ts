@@ -13,6 +13,13 @@ export interface WorkspaceSettings {
   filterBots: boolean;
 }
 
+function isTimezoneError(err: unknown): boolean {
+  const e = err as { message?: string; meta?: { message?: string }; cause?: { message?: string } };
+  return /time ?zone/i.test(
+    `${e?.message ?? ''} ${e?.meta?.message ?? ''} ${e?.cause?.message ?? ''}`,
+  );
+}
+
 export const MAX_RANGE_DAYS = 366;
 export const MAX_HOURLY_DAYS = 14;
 export const MAX_EVENT_FILTER_DAYS = 31;
@@ -97,8 +104,11 @@ async function resolveRange(
     };
   } catch (err) {
     if (err instanceof AppError) throw err;
-    // Postgres rejected the timezone name (Intl accepted something PG does not know).
-    throw new AppError('VALIDATION_ERROR', 'Unsupported timezone');
+    // Only a genuine "unknown time zone" from Postgres is the caller's mistake (Intl accepted a name PG
+    // does not know). Anything else - a dropped connection, a timeout - is OUR failure and must surface
+    // as a 5xx, not be disguised as a validation error.
+    if (isTimezoneError(err)) throw new AppError('VALIDATION_ERROR', 'Unsupported timezone');
+    throw err;
   }
 }
 
