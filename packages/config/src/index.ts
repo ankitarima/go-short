@@ -49,6 +49,11 @@ const schema = z
     FEATURE_QR_LOGOS: bool.default(true),
     FEATURE_PASSWORD_LINKS: bool.default(true),
     FEATURE_API: bool.default(true),
+    /** If set, expired/disabled/unknown links redirect here instead of showing an error page. */
+    LINK_UNAVAILABLE_REDIRECT_URL: z
+      .union([z.url(), z.literal('')])
+      .optional()
+      .transform((v) => v || undefined),
     /** Shared secret for internal endpoints (Caddy on-demand TLS "ask"). Required in production when custom domains are on. */
     INTERNAL_API_TOKEN: z.string().min(16).optional(),
   })

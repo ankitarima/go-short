@@ -41,21 +41,24 @@ export interface CacheableLink {
   utmContent: string | null;
 }
 
+/** Final Location for a link: stored destination with the link's UTM parameters merged in. */
+export function resolveDestination(link: CacheableLink): string {
+  return mergeUtm(link.destinationUrl, {
+    utm_source: link.utmSource,
+    utm_medium: link.utmMedium,
+    utm_campaign: link.utmCampaign,
+    utm_term: link.utmTerm,
+    utm_content: link.utmContent,
+  });
+}
+
 export function buildCacheEntry(link: CacheableLink): RedirectCacheEntry {
   const hasPassword = link.passwordHash !== null;
   return {
     linkId: link.id,
     workspaceId: link.workspaceId,
     campaignId: link.campaignId,
-    destinationUrl: hasPassword
-      ? null
-      : mergeUtm(link.destinationUrl, {
-          utm_source: link.utmSource,
-          utm_medium: link.utmMedium,
-          utm_campaign: link.utmCampaign,
-          utm_term: link.utmTerm,
-          utm_content: link.utmContent,
-        }),
+    destinationUrl: hasPassword ? null : resolveDestination(link),
     active: link.isActive,
     expiresAt: link.expiresAt ? link.expiresAt.toISOString() : null,
     hasPassword,
