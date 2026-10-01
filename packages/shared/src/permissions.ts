@@ -24,14 +24,29 @@ export const PERMISSIONS = [
 export type Permission = (typeof PERMISSIONS)[number];
 
 const VIEWER: Permission[] = [
-  'workspace:read', 'members:read', 'domains:read', 'links:read',
-  'campaigns:read', 'qr:read', 'analytics:read',
+  'workspace:read',
+  'members:read',
+  'domains:read',
+  'links:read',
+  'campaigns:read',
+  'qr:read',
+  'analytics:read',
 ];
 const MEMBER: Permission[] = [
-  ...VIEWER, 'links:write', 'links:delete', 'campaigns:write', 'campaigns:delete', 'qr:write',
+  ...VIEWER,
+  'links:write',
+  'links:delete',
+  'campaigns:write',
+  'campaigns:delete',
+  'qr:write',
 ];
 const ADMIN: Permission[] = [
-  ...MEMBER, 'workspace:update', 'members:manage', 'domains:manage', 'apikeys:manage', 'audit:read',
+  ...MEMBER,
+  'workspace:update',
+  'members:manage',
+  'domains:manage',
+  'apikeys:manage',
+  'audit:read',
 ];
 
 export const ROLE_PERMISSIONS: Record<WorkspaceRole, ReadonlySet<Permission>> = {

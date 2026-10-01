@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import {
-  can, canAssignRole, checkCustomSlug, generateSlug, mergeUtm, normalizeDestinationUrl, normalizeHostname,
+  can,
+  canAssignRole,
+  checkCustomSlug,
+  generateSlug,
+  mergeUtm,
+  normalizeDestinationUrl,
+  normalizeHostname,
 } from './index';
 
 describe('slugs', () => {
   it('generates 7 char unambiguous slugs', () => {
-    for (let i = 0; i < 200; i++) expect(generateSlug()).toMatch(/^[2-9a-hj-km-np-zA-HJ-KM-NP-Z]{7}$/);
+    for (let i = 0; i < 200; i++)
+      expect(generateSlug()).toMatch(/^[2-9a-hj-km-np-zA-HJ-KM-NP-Z]{7}$/);
   });
   it('rejects reserved, short and bad-charset custom slugs', () => {
     expect(checkCustomSlug('Admin')).toEqual({ ok: false, reason: 'reserved' });
@@ -19,25 +26,41 @@ describe('slugs', () => {
 });
 
 describe('normalizeDestinationUrl', () => {
-  it('accepts http(s)', () => expect(normalizeDestinationUrl(' https://Example.com/a ')).toBe('https://example.com/a'));
-  it.each(['javascript:alert(1)', 'data:text/html,x', 'file:///etc/passwd', 'vbscript:x', 'ftp://x.com', 'not a url',
-    'https://user:pw@example.com', 'https://exa mple.com', ''])('rejects %s', (u) => {
+  it('accepts http(s)', () =>
+    expect(normalizeDestinationUrl(' https://Example.com/a ')).toBe('https://example.com/a'));
+  it.each([
+    'javascript:alert(1)',
+    'data:text/html,x',
+    'file:///etc/passwd',
+    'vbscript:x',
+    'ftp://x.com',
+    'not a url',
+    'https://user:pw@example.com',
+    'https://exa mple.com',
+    '',
+  ])('rejects %s', (u) => {
     expect(() => normalizeDestinationUrl(u)).toThrow();
   });
-  it('rejects overlong URLs', () => expect(() => normalizeDestinationUrl('https://a.com/' + 'x'.repeat(3000))).toThrow());
+  it('rejects overlong URLs', () =>
+    expect(() => normalizeDestinationUrl('https://a.com/' + 'x'.repeat(3000))).toThrow());
 });
 
 describe('mergeUtm', () => {
   it('adds missing params', () => {
-    expect(mergeUtm('https://a.com/p', { utm_source: 'ig', utm_medium: 'social' })).toBe('https://a.com/p?utm_source=ig&utm_medium=social');
+    expect(mergeUtm('https://a.com/p', { utm_source: 'ig', utm_medium: 'social' })).toBe(
+      'https://a.com/p?utm_source=ig&utm_medium=social',
+    );
   });
   it('does not duplicate or override params already on the destination', () => {
-    const out = new URL(mergeUtm('https://a.com/p?utm_source=mail&x=1', { utm_source: 'ig', utm_campaign: 'c' }));
+    const out = new URL(
+      mergeUtm('https://a.com/p?utm_source=mail&x=1', { utm_source: 'ig', utm_campaign: 'c' }),
+    );
     expect(out.searchParams.getAll('utm_source')).toEqual(['mail']);
     expect(out.searchParams.get('utm_campaign')).toBe('c');
     expect(out.searchParams.get('x')).toBe('1');
   });
-  it('ignores empty values', () => expect(mergeUtm('https://a.com/', { utm_term: '' })).toBe('https://a.com/'));
+  it('ignores empty values', () =>
+    expect(mergeUtm('https://a.com/', { utm_term: '' })).toBe('https://a.com/'));
 });
 
 describe('normalizeHostname', () => {

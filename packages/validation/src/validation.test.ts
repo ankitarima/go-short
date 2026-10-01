@@ -3,8 +3,12 @@ import { cursorQuery, inviteMemberSchema, registerSchema, updateWorkspaceSchema 
 
 describe('validation', () => {
   it('normalizes email and enforces password length', () => {
-    expect(registerSchema.parse({ email: ' A@B.com ', name: 'x', password: 'a'.repeat(12) }).email).toBe('a@b.com');
-    expect(registerSchema.safeParse({ email: 'a@b.com', name: 'x', password: 'short' }).success).toBe(false);
+    expect(
+      registerSchema.parse({ email: ' A@B.com ', name: 'x', password: 'a'.repeat(12) }).email,
+    ).toBe('a@b.com');
+    expect(
+      registerSchema.safeParse({ email: 'a@b.com', name: 'x', password: 'short' }).success,
+    ).toBe(false);
   });
   it('cannot invite as OWNER', () => {
     expect(inviteMemberSchema.safeParse({ email: 'a@b.com', role: 'OWNER' }).success).toBe(false);

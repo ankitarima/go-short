@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { loadConfig, parseTrustProxy } from './index';
 
 const base = {
-  DATABASE_URL: 'postgresql://x', REDIS_URL: 'redis://x', APP_URL: 'http://localhost:5173',
-  DEFAULT_SHORT_DOMAIN: 'go.example.com', SESSION_SECRET: 'x'.repeat(40),
+  DATABASE_URL: 'postgresql://x',
+  REDIS_URL: 'redis://x',
+  APP_URL: 'http://localhost:5173',
+  DEFAULT_SHORT_DOMAIN: 'go.example.com',
+  SESSION_SECRET: 'x'.repeat(40),
 };
 
 describe('config', () => {

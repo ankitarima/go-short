@@ -18,7 +18,8 @@ function hasControlOrSpace(s: string): boolean {
  */
 export function normalizeDestinationUrl(input: string): string {
   const trimmed = input.trim();
-  if (trimmed.length === 0 || trimmed.length > MAX_URL_LENGTH) throw new UrlValidationError('Invalid URL length');
+  if (trimmed.length === 0 || trimmed.length > MAX_URL_LENGTH)
+    throw new UrlValidationError('Invalid URL length');
   // Control chars / whitespace inside the URL are never legitimate.
   if (hasControlOrSpace(trimmed)) throw new UrlValidationError('URL contains illegal characters');
   let u: URL;
@@ -27,13 +28,21 @@ export function normalizeDestinationUrl(input: string): string {
   } catch {
     throw new UrlValidationError('Malformed URL');
   }
-  if (!ALLOWED_PROTOCOLS.has(u.protocol)) throw new UrlValidationError('Only http and https URLs are allowed');
-  if (u.username || u.password) throw new UrlValidationError('URLs with embedded credentials are not allowed');
+  if (!ALLOWED_PROTOCOLS.has(u.protocol))
+    throw new UrlValidationError('Only http and https URLs are allowed');
+  if (u.username || u.password)
+    throw new UrlValidationError('URLs with embedded credentials are not allowed');
   if (!u.hostname) throw new UrlValidationError('URL has no host');
   return u.toString();
 }
 
-export const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const;
+export const UTM_KEYS = [
+  'utm_source',
+  'utm_medium',
+  'utm_campaign',
+  'utm_term',
+  'utm_content',
+] as const;
 export type UtmParams = Partial<Record<(typeof UTM_KEYS)[number], string | null | undefined>>;
 
 /**

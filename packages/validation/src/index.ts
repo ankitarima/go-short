@@ -16,7 +16,10 @@ export const changePasswordSchema = z.object({
   newPassword: password,
 });
 export const forgotPasswordSchema = z.object({ email });
-export const resetPasswordSchema = z.object({ token: z.string().min(20).max(200), newPassword: password });
+export const resetPasswordSchema = z.object({
+  token: z.string().min(20).max(200),
+  newPassword: password,
+});
 
 export const workspaceSlug = z
   .string()

@@ -1,8 +1,6 @@
 import { z } from 'zod';
 
-const bool = z
-  .enum(['true', 'false'])
-  .transform((v) => v === 'true');
+const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
 
 const csv = z.string().transform((v) =>
   v
@@ -29,8 +27,17 @@ const schema = z.object({
     .default(302),
   REDIRECT_CACHE_TTL_SECONDS: z.coerce.number().int().positive().default(3600),
   RESERVED_SLUGS: csv.default([
-    'api', 'admin', 'login', 'register', 'dashboard', 'settings', 'health', 'ready',
-    'metrics', 'favicon.ico', 'robots.txt',
+    'api',
+    'admin',
+    'login',
+    'register',
+    'dashboard',
+    'settings',
+    'health',
+    'ready',
+    'metrics',
+    'favicon.ico',
+    'robots.txt',
   ]),
   GEOIP_DATABASE_PATH: z.string().default('./storage/geoip/dbip-city-lite.mmdb'),
   STORAGE_PATH: z.string().default('./storage'),
@@ -50,9 +57,15 @@ export type Config = z.infer<typeof schema> & {
 /** Express "trust proxy": digits => hop count, "false" => off, otherwise a list of subnets/keywords. */
 export function parseTrustProxy(raw: string): Config['trustProxy'] {
   if (raw === 'false') return false;
-  if (raw === 'true') throw new Error('TRUST_PROXY=true trusts any client-supplied X-Forwarded-For; use a hop count or CIDR list');
+  if (raw === 'true')
+    throw new Error(
+      'TRUST_PROXY=true trusts any client-supplied X-Forwarded-For; use a hop count or CIDR list',
+    );
   if (/^\d+$/.test(raw)) return Number(raw);
-  return raw.split(',').map((s) => s.trim()).filter(Boolean);
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
