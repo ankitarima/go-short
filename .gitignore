@@ -1,0 +1,15 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+*.log
+coverage
+storage
+backups
+*.dump
+*.sql.gz
+*.mmdb
+.DS_Store
+playwright-report
+test-results

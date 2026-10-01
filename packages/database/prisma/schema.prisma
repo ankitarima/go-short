@@ -1,0 +1,377 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum WorkspaceRole {
+  OWNER
+  ADMIN
+  MEMBER
+  VIEWER
+}
+
+enum DomainStatus {
+  PENDING
+  VERIFIED
+  DISABLED
+}
+
+enum SystemRole {
+  USER
+  ADMIN
+}
+
+enum DeviceType {
+  MOBILE
+  DESKTOP
+  TABLET
+  OTHER
+}
+
+enum Dimension {
+  COUNTRY
+  REGION
+  CITY
+  DEVICE
+  BROWSER
+  OS
+  REFERRER
+  UTM_SOURCE
+  UTM_MEDIUM
+  UTM_CAMPAIGN
+}
+
+enum QrFormat {
+  SVG
+  PNG
+}
+
+enum QrErrorCorrection {
+  L
+  M
+  Q
+  H
+}
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  name          String
+  passwordHash  String
+  emailVerified Boolean    @default(false)
+  systemRole    SystemRole @default(USER)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  sessions    Session[]
+  memberships WorkspaceMember[]
+  apiKeys     ApiKey[]
+  resetTokens AuthToken[]
+  auditLogs   AuditLog[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  csrfToken String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  userAgent String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+/// Single-use tokens for password reset and email verification (hash stored only).
+model AuthToken {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String // PASSWORD_RESET | EMAIL_VERIFY
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+}
+
+model Workspace {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  timezone  String   @default("UTC")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // privacy settings
+  hashIps       Boolean @default(true)
+  filterBots    Boolean @default(false)
+  retentionDays Int? // null = unlimited
+
+  members     WorkspaceMember[]
+  invitations Invitation[]
+  domains     Domain[]
+  campaigns   Campaign[]
+  links       Link[]
+  qrCodes     QRCode[]
+  apiKeys     ApiKey[]
+  webhooks    Webhook[]
+  auditLogs   AuditLog[]
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  workspaceId String
+  userId      String
+  role        WorkspaceRole
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+  @@index([userId])
+}
+
+model Invitation {
+  id          String        @id @default(cuid())
+  workspaceId String
+  email       String
+  role        WorkspaceRole
+  tokenHash   String        @unique
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  createdAt   DateTime      @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+model Domain {
+  id                String       @id @default(cuid())
+  workspaceId       String
+  hostname          String       @unique
+  status            DomainStatus @default(PENDING)
+  verificationToken String
+  isVerified        Boolean      @default(false)
+  isDefault         Boolean      @default(false)
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  links     Link[]
+
+  @@index([workspaceId])
+}
+
+model Campaign {
+  id          String    @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  startDate   DateTime?
+  endDate     DateTime?
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  links     Link[]
+  qrCodes   QRCode[]
+
+  @@index([workspaceId, createdAt])
+}
+
+model Link {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  domainId       String
+  campaignId     String?
+  slug           String
+  destinationUrl String
+  title          String?
+  description    String?
+  isActive       Boolean   @default(true)
+  expiresAt      DateTime?
+  passwordHash   String?
+  redirectStatus Int? // overrides global default when set (301/302/307/308)
+
+  // Per-link UTM config, merged into destination at redirect-cache build time
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmTerm     String?
+  utmContent  String?
+
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  domain    Domain    @relation(fields: [domainId], references: [id], onDelete: Cascade)
+  campaign  Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  qrCodes   QRCode[]
+
+  @@unique([domainId, slug])
+  @@index([workspaceId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([campaignId])
+}
+
+model QRCode {
+  id              String            @id @default(cuid())
+  workspaceId     String
+  campaignId      String?
+  linkId          String
+  name            String
+  format          QrFormat          @default(SVG)
+  size            Int               @default(512)
+  margin          Int               @default(2)
+  errorCorrection QrErrorCorrection @default(M)
+  foregroundColor String            @default("#000000")
+  backgroundColor String            @default("#FFFFFF")
+  logoPath        String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  campaign  Campaign? @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+  link      Link      @relation(fields: [linkId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+  @@index([campaignId])
+  @@index([linkId])
+}
+
+model ApiKey {
+  id          String    @id @default(cuid())
+  workspaceId String
+  createdById String
+  name        String
+  keyPrefix   String
+  keyHash     String    @unique
+  lastUsedAt  DateTime?
+  expiresAt   DateTime?
+  revokedAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User      @relation(fields: [createdById], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+model Webhook {
+  id          String   @id @default(cuid())
+  workspaceId String
+  url         String
+  secret      String // used to compute HMAC-SHA256 signature
+  events      String[]
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+}
+
+model AuditLog {
+  id           String   @id @default(cuid())
+  workspaceId  String?
+  userId       String?
+  action       String
+  resourceType String
+  resourceId   String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([createdAt])
+}
+
+/// Raw click events. No FKs on purpose: cheap bulk inserts, and rows can
+/// outlive links. Never contains a raw IP, only a day-salted hash.
+model ClickEvent {
+  id          String     @id // eventId from the redirect service (idempotent inserts)
+  workspaceId String
+  linkId      String
+  campaignId  String?
+  timestamp   DateTime
+  visitorHash String
+  ipHash      String?
+  country     String?
+  region      String?
+  city        String?
+  device      DeviceType @default(OTHER)
+  browser     String?
+  browserVer  String?
+  os          String?
+  osVer       String?
+  isBot       Boolean    @default(false)
+  referrer    String? // host only
+  language    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+
+  @@index([linkId, timestamp])
+  @@index([workspaceId, timestamp])
+  @@index([campaignId, timestamp])
+  @@index([timestamp])
+}
+
+/// One row per (day, link, bot-ness). Dashboard reads these, never ClickEvent.
+/// `date` is the UTC day; non-UTC timezone queries use hourly-free approximation documented in docs/analytics.md.
+model AnalyticsDaily {
+  date           DateTime @db.Date
+  workspaceId    String
+  linkId         String
+  campaignId     String?
+  isBot          Boolean
+  clicks         Int      @default(0)
+  uniqueVisitors Int      @default(0)
+  mobileClicks   Int      @default(0)
+  desktopClicks  Int      @default(0)
+  tabletClicks   Int      @default(0)
+
+  @@id([date, linkId, isBot])
+  @@index([workspaceId, date])
+  @@index([campaignId, date])
+}
+
+/// Breakdown rollups (country, browser, referrer, ...). Value cardinality is capped in the worker.
+model AnalyticsDimensionDaily {
+  date        DateTime  @db.Date
+  linkId      String
+  dimension   Dimension
+  value       String
+  isBot       Boolean
+  workspaceId String
+  campaignId  String?
+  clicks      Int       @default(0)
+
+  @@id([date, linkId, dimension, value, isBot])
+  @@index([workspaceId, date, dimension])
+  @@index([campaignId, date, dimension])
+}
+
+/// Dedupe table used to count unique visitors incrementally. Pruned by cleanup job.
+model DailyVisitor {
+  date        DateTime @db.Date
+  linkId      String
+  visitorHash String
+
+  @@id([date, linkId, visitorHash])
+}

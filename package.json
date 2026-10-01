@@ -1,0 +1,20 @@
+{
+  "name": "go-short",
+  "version": "0.1.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:infra": "docker compose -f docker-compose.dev.yml up -d postgres redis",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "db:migrate": "npm run migrate --workspace @go-short/database",
+    "db:generate": "npm run generate --workspace @go-short/database"
+  },
+  "devDependencies": {}
+}
