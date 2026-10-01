@@ -1,3 +1,5 @@
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { z } from 'zod';
 
 const bool = z.enum(['true', 'false']).transform((v) => v === 'true');
@@ -44,6 +46,12 @@ const schema = z
     ]),
     GEOIP_DATABASE_PATH: z.string().default('./storage/geoip/dbip-city-lite.mmdb'),
     STORAGE_PATH: z.string().default('./storage'),
+    /** Redirect service: flush buffered click events to the queue every N ms, or at ANALYTICS_BATCH_MAX events. */
+    ANALYTICS_BATCH_FLUSH_MS: z.coerce.number().int().min(10).max(5000).default(250),
+    ANALYTICS_BATCH_MAX: z.coerce.number().int().min(1).max(2000).default(500),
+    /** Hard cap on events held in memory while the queue is unreachable; oldest are dropped beyond it. */
+    ANALYTICS_BUFFER_MAX: z.coerce.number().int().min(1000).max(1_000_000).default(20_000),
+    WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(64).default(4),
     FEATURE_CUSTOM_DOMAINS: bool.default(true),
     FEATURE_CAMPAIGNS: bool.default(true),
     FEATURE_QR_LOGOS: bool.default(true),
@@ -94,5 +102,37 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     throw new Error(`Invalid environment configuration:\n${issues}`);
   }
   const c = result.data;
-  return { ...c, isProd: c.NODE_ENV === 'production', trustProxy: parseTrustProxy(c.TRUST_PROXY) };
+  const root = findProjectRoot();
+  return {
+    ...c,
+    // Relative paths are anchored to the project root, not whichever app directory we were started in.
+    GEOIP_DATABASE_PATH: resolvePath(c.GEOIP_DATABASE_PATH, root),
+    STORAGE_PATH: resolvePath(c.STORAGE_PATH, root),
+    isProd: c.NODE_ENV === 'production',
+    trustProxy: parseTrustProxy(c.TRUST_PROXY),
+  };
 }
+
+/**
+ * Nearest ancestor directory whose package.json declares `workspaces` (the monorepo root).
+ * Falls back to `start` (e.g. /app inside a container, where there is no monorepo root).
+ */
+export function findProjectRoot(start: string = process.cwd()): string {
+  let dir = start;
+  for (;;) {
+    const pkg = join(dir, 'package.json');
+    if (existsSync(pkg)) {
+      try {
+        if ((JSON.parse(readFileSync(pkg, 'utf8')) as { workspaces?: unknown }).workspaces)
+          return dir;
+      } catch {
+        /* unreadable package.json: keep walking */
+      }
+    }
+    const parent = dirname(dir);
+    if (parent === dir) return start;
+    dir = parent;
+  }
+}
+
+const resolvePath = (p: string, root: string): string => (isAbsolute(p) ? p : resolve(root, p));

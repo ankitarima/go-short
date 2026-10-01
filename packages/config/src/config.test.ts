@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { loadConfig, parseTrustProxy } from './index';
+import { isAbsolute, join } from 'node:path';
+import { findProjectRoot, loadConfig, parseTrustProxy } from './index';
 
 const base = {
   DATABASE_URL: 'postgresql://x',
@@ -35,5 +36,22 @@ describe('config', () => {
     expect(
       loadConfig({ ...base, NODE_ENV: 'production', FEATURE_CUSTOM_DOMAINS: 'false' }).isProd,
     ).toBe(true);
+  });
+
+  it('anchors relative storage/GeoIP paths to the monorepo root, whatever the working directory', () => {
+    const root = findProjectRoot(join(process.cwd(), '..', '..', 'apps', 'worker'));
+    expect(root).toBe(findProjectRoot());
+    const c = loadConfig({
+      ...base,
+      GEOIP_DATABASE_PATH: './storage/geoip/x.mmdb',
+      STORAGE_PATH: 'storage',
+    });
+    expect(isAbsolute(c.GEOIP_DATABASE_PATH)).toBe(true);
+    expect(c.GEOIP_DATABASE_PATH).toBe(join(root, 'storage/geoip/x.mmdb'));
+    expect(c.STORAGE_PATH).toBe(join(root, 'storage'));
+    expect(loadConfig({ ...base, STORAGE_PATH: '/var/data' }).STORAGE_PATH).toBe('/var/data');
+  });
+  it('falls back to the starting directory when no monorepo root exists', () => {
+    expect(findProjectRoot('/')).toBe('/');
   });
 });

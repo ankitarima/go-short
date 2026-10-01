@@ -85,4 +85,4 @@ The cache entry carries `hasPassword: true, destinationUrl: null`, so a cache hi
 ### Operating notes
 
 - Raise the listen backlog on the host for burst traffic (`net.core.somaxconn`, Linux default 4096 on recent kernels; macOS defaults to 128, which resets very large simultaneous connect bursts in local tests).
-- Analytics publishing is behind the `AnalyticsPublisher` interface; the service currently ships with a no-op publisher until the BullMQ publisher lands with the analytics worker.
+- Analytics publishing is behind the `AnalyticsPublisher` interface; production uses `BullmqPublisher` (batched, bounded buffer, never blocks or throws), described in [analytics.md](analytics.md).

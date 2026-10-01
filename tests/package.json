@@ -1,0 +1,15 @@
+{
+  "name": "@go-short/tests",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@go-short/config": "*",
+    "@go-short/database": "*",
+    "@go-short/shared": "*"
+  }
+}
