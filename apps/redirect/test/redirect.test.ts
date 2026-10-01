@@ -344,6 +344,37 @@ describe('caching', () => {
   });
 });
 
+describe('request ids', () => {
+  it('every response carries a unique X-Request-Id', async () => {
+    await setup();
+    const { server } = makeRedirect();
+    const ids = new Set<string>();
+    for (const p of ['/hello', '/hello', '/nope', '/health'])
+      ids.add((await get(server, p)).headers['x-request-id']!);
+    expect(ids.size).toBe(4);
+    for (const id of ids) expect(id).toMatch(/^req_[0-9a-z]+-[0-9a-z]+$/);
+  });
+});
+
+describe('cache hardening', () => {
+  it('a poisoned cached status code falls back to the configured default', async () => {
+    const { ws, link } = await setup('st');
+    const entry = {
+      linkId: link.id,
+      workspaceId: ws.id,
+      campaignId: null,
+      destinationUrl: 'https://example.org/x',
+      active: true,
+      expiresAt: null,
+      hasPassword: false,
+    };
+    for (const status of [303, 200, 999, 'x']) {
+      await redis.set('link:localhost:4001:st', JSON.stringify({ ...entry, status }));
+      expect((await get(makeRedirect().server, '/st')).status).toBe(302);
+    }
+  });
+});
+
 describe('redis and analytics failure policy', () => {
   it('Redis down: falls back to Postgres and still redirects and publishes', async () => {
     await setup('nored');

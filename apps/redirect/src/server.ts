@@ -32,7 +32,11 @@ server.listen(config.REDIRECT_PORT, () =>
 
 async function shutdown(signal: string) {
   logger.info({ signal }, 'shutting down');
+  // Stop accepting, drop idle keep-alive sockets (otherwise close() waits for them), let in-flight finish.
   server.close();
+  server.closeIdleConnections();
+  const force = setTimeout(() => server.closeAllConnections(), 10_000);
+  force.unref();
   await Promise.allSettled([disconnectPrisma(), redis.quit()]);
   process.exit(0);
 }

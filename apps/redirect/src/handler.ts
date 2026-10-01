@@ -40,6 +40,7 @@ function isSafeLocation(url: string): boolean {
   }
   return true;
 }
+const ALLOWED_STATUS: ReadonlySet<number> = new Set([301, 302, 307, 308]);
 const UNLOCK_MAX_ATTEMPTS = 10;
 const UNLOCK_WINDOW_SECONDS = 900;
 
@@ -150,7 +151,10 @@ export function createRedirectServer(deps: RedirectDeps): Server {
     }
     // HEAD (link-preview probes, uptime checks) gets the same answer but is not counted as a click.
     if (!head) publish(req, e);
-    redirect(res, e.status ?? (config.REDIRECT_STATUS as 301 | 302 | 307 | 308), e.destinationUrl);
+    // A cached status outside the allowed set (corruption/poisoning) falls back to the default.
+    const status =
+      e.status !== null && ALLOWED_STATUS.has(e.status) ? e.status : config.REDIRECT_STATUS;
+    redirect(res, status, e.destinationUrl);
   }
 
   async function readForm(req: IncomingMessage): Promise<URLSearchParams | null> {
@@ -227,9 +231,32 @@ export function createRedirectServer(deps: RedirectDeps): Server {
     res.end(body);
   }
 
+  // Cheap unique ids (no crypto on the hot path): process-start timestamp + counter.
+  const idPrefix = Date.now().toString(36);
+  let seq = 0;
+  const debugLog = logger.isLevelEnabled('debug');
+
   const server = createServer((req, res) => {
+    const requestId = `req_${idPrefix}-${(seq++).toString(36)}`;
+    res.setHeader('X-Request-Id', requestId);
+    const started = debugLog ? process.hrtime.bigint() : 0n;
+    if (debugLog) {
+      res.once('finish', () =>
+        logger.debug(
+          {
+            requestId,
+            method: req.method,
+            // Slugs identify links but are not secrets; query strings are never logged.
+            path: (req.url ?? '').split('?')[0],
+            status: res.statusCode,
+            durationMs: Number(process.hrtime.bigint() - started) / 1e6,
+          },
+          'request',
+        ),
+      );
+    }
     void handle(req, res).catch((err) => {
-      logger.error({ err, requestId: 'n/a' }, 'unhandled redirect error');
+      logger.error({ err, requestId }, 'unhandled redirect error');
       if (!res.headersSent) html(res, 500, errorPage(), false);
       else res.destroy();
     });
