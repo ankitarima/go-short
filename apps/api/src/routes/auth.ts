@@ -23,6 +23,18 @@ export function authRouter(ctx: AppContext): Router {
   const { prisma } = ctx;
   // 10 attempts / 15 minutes / IP across all credential endpoints.
   const strict = rateLimit(ctx, { name: 'auth', limit: 10, windowSeconds: 15 * 60 });
+  // Per ACCOUNT as well as per IP: a botnet spreading guesses over many addresses is still capped
+  // for any one victim. Generous enough that a real user is not locked out by an attacker's noise.
+  // Keyed by a hash so Redis never holds email addresses.
+  const perAccount = rateLimit(ctx, {
+    name: 'login-account',
+    limit: 30,
+    windowSeconds: 15 * 60,
+    key: (req) => {
+      const email = (req.body as { email?: unknown } | undefined)?.email;
+      return typeof email === 'string' ? sha256(email.trim().toLowerCase()) : (req.ip ?? 'unknown');
+    },
+  });
 
   async function issueToken(
     userId: string,
@@ -70,13 +82,17 @@ export function authRouter(ctx: AppContext): Router {
       .json({ success: true, data: { user: publicUser(user), csrfToken: session.csrfToken } });
   });
 
-  r.post('/login', strict, async (req, res) => {
+  r.post('/login', strict, perAccount, async (req, res) => {
     const input = loginSchema.parse(req.body);
     const user = await prisma.user.findUnique({ where: { email: input.email } });
     const valid = user
       ? await verifyPassword(user.passwordHash, input.password)
       : (await burnVerify(input.password), false);
-    if (!user || !valid) throw new AppError('INVALID_CREDENTIALS', 'Invalid email or password');
+    if (!user || !valid) {
+      ctx.metrics?.logins.inc({ result: 'failure' });
+      throw new AppError('INVALID_CREDENTIALS', 'Invalid email or password');
+    }
+    ctx.metrics?.logins.inc({ result: 'success' });
     const token = await createSession(ctx, user.id, req);
     const session = await prisma.session.findUniqueOrThrow({ where: { tokenHash: sha256(token) } });
     await audit(ctx, {

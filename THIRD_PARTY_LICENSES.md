@@ -28,6 +28,7 @@ re-verify when upgrading (`npm ls`, `npm view <pkg> license`). Transitive depend
 | pngjs                                      | 7.0.0           | MIT                       | PNG decode/encode for logo sanitizing and compositing (pure JS) |
 | jpeg-js                                    | 0.4.4           | BSD-3-Clause              | JPEG decode for logo uploads (pure JS)                          |
 | swagger-ui-dist                            | 5.33.0          | Apache-2.0                | API reference UI served at `/docs` (bundled, no CDN)            |
+| prom-client                                | 15.x            | Apache-2.0                | Prometheus metrics (served on a separate, non-public port)      |
 
 ### Frontend (`apps/web`, bundled into the browser app)
 
@@ -42,7 +43,9 @@ Build/test only: vite, @vitejs/plugin-react, tailwindcss, @tailwindcss/vite, msw
 
 ## Development dependencies
 
-typescript (Apache-2.0), eslint, typescript-eslint, prettier, vitest, tsup, tsx, supertest, ajv, ajv-formats and @seriousme/openapi-schema-validator (all MIT); jsqr (Apache-2.0, decodes QR codes in tests to prove they scan).
+typescript (Apache-2.0), eslint, typescript-eslint, prettier, vitest, tsup, tsx, concurrently (one-command `npm run dev`), supertest, ajv, ajv-formats and @seriousme/openapi-schema-validator (all MIT); jsqr (Apache-2.0, decodes QR codes in tests to prove they scan).
+
+Security scanners run ad hoc through Docker and are not dependencies: gitleaks (MIT) and Trivy (Apache-2.0).
 
 ## Data
 
@@ -52,10 +55,14 @@ typescript (Apache-2.0), eslint, typescript-eslint, prettier, vitest, tsup, tsx,
 
 ## Infrastructure images
 
-| Image       | License            | Notes                             |
-| ----------- | ------------------ | --------------------------------- |
-| postgres 17 | PostgreSQL License |                                   |
-| valkey 8    | BSD-3-Clause       | Used instead of Redis, see below. |
+| Image             | License            | Notes                                                                                                                                                                                                                                                                      |
+| ----------------- | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| postgres 17       | PostgreSQL License |                                                                                                                                                                                                                                                                            |
+| valkey 8          | BSD-3-Clause       | Used instead of Redis, see below.                                                                                                                                                                                                                                          |
+| prometheus 3      | Apache-2.0         | Optional monitoring stack (`docker-compose.monitoring.yml`).                                                                                                                                                                                                               |
+| grafana-oss 13    | AGPL-3.0           | Optional monitoring stack. Free to self-host; used unmodified as a **separate service** (nothing in goShort links to it), so the AGPL does not extend to this project. If you modify Grafana and offer it to others over a network, its source-sharing terms apply to you. |
+| postgres_exporter | Apache-2.0         | Optional monitoring stack.                                                                                                                                                                                                                                                 |
+| redis_exporter    | MIT                | Optional monitoring stack; works with Valkey.                                                                                                                                                                                                                              |
 
 ## Decisions about licensing
 

@@ -27,6 +27,7 @@ export const rateLimit =
       res.setHeader('RateLimit-Limit', o.limit);
       res.setHeader('RateLimit-Remaining', Math.max(0, o.limit - count));
       if (count > o.limit) {
+        ctx.metrics?.rateLimited.inc({ limiter: o.name });
         res.setHeader('Retry-After', o.windowSeconds);
         throw new AppError('RATE_LIMITED', 'Too many requests, please try again later');
       }

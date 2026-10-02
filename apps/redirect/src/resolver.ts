@@ -8,6 +8,7 @@ import {
 import type { Redis } from 'ioredis';
 import type { Logger } from 'pino';
 import type { DomainRegistry } from './domainRegistry';
+import type { CacheResult } from './metrics';
 
 export type Resolution =
   { kind: 'entry'; entry: RedirectCacheEntry } | { kind: 'missing' } | { kind: 'unavailable' };
@@ -36,6 +37,7 @@ interface Options {
   logger: Logger;
   domains: DomainRegistry;
   ttlSeconds: number;
+  onCache?: (result: CacheResult) => void;
 }
 
 /** Redis first, Postgres on miss or Redis failure. Never throws. */
@@ -60,15 +62,17 @@ export class LinkResolver {
     try {
       raw = await this.o.redis.get(key);
     } catch (err) {
+      this.o.onCache?.('redis_error');
       this.redisFailed(err, 'get');
     }
     if (raw !== null) {
       const parsed = parseEntry(raw);
-      if (parsed === 'missing') return { kind: 'missing' };
-      if (parsed) return { kind: 'entry', entry: parsed };
+      if (parsed === 'missing') return (this.o.onCache?.('negative_hit'), { kind: 'missing' });
+      if (parsed) return (this.o.onCache?.('hit'), { kind: 'entry', entry: parsed });
       // Corrupt value: fall through and overwrite it from Postgres.
     }
     // Single-flight: a cold, popular link produces ONE database query, not one per concurrent request.
+    if (raw === null) this.o.onCache?.('miss');
     let p = this.inflight.get(key);
     if (!p) {
       p = this.load(key, hostname, slug).finally(() => this.inflight.delete(key));

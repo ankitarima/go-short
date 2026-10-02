@@ -25,6 +25,7 @@ export function makeRedirect(
     redis: Redis;
     publisher: AnalyticsPublisher;
     now: () => number;
+    metrics: import('../src/metrics').RedirectMetrics;
   }> = {},
 ) {
   const publisher = (over.publisher ?? new CapturingPublisher()) as CapturingPublisher;
@@ -35,6 +36,7 @@ export function makeRedirect(
     logger: pino({ level: 'silent' }),
     publisher,
     now: over.now,
+    metrics: over.metrics,
   });
   return { server, publisher };
 }

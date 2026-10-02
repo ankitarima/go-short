@@ -23,11 +23,25 @@ Nobody can grant a role above their own, and a workspace always keeps at least o
 
 ## Rate limiting
 
-Redis fixed-window counters; credential endpoints are limited to 10 attempts / 15 min / IP. The limiter **fails open** if Redis is down (logged).
+Redis fixed-window counters; credential endpoints are limited to 10 attempts / 15 min / IP, and logins additionally to 30 / 15 min **per account** (keyed by a hash of the email), so guesses spread across many IPs against one account are still capped. The limiters **fail open** if Redis is down (logged); the password-link unlock limiter fails closed. Rejections are counted in `goshort_rate_limited_total`.
 
 ## Trusted proxies
 
 Express `trust proxy` is set from `TRUST_PROXY` (hop count or CIDR list, e.g. `1` behind Caddy). `true` is rejected at startup because it would let any client spoof `X-Forwarded-For` and bypass IP rate limits. Use the exact number of proxies between the internet and the app.
+
+## Response headers and caching
+
+- API: Helmet defaults (CSP `default-src 'self'`, HSTS, `nosniff`, frame protection, `Referrer-Policy: no-referrer`), `X-Powered-By` removed, and `Cache-Control: no-store` on every `/api` response.
+- Redirect pages: `no-store`, `nosniff`, `default-src 'none'` CSP, `frame-ancestors 'none'`.
+- Web app: the policy in [apps/web/security-headers.ts](../apps/web/security-headers.ts) (`script-src 'self'`, no inline script, `frame-ancestors 'none'`, `object-src 'none'`, same-origin connections) must be sent by whatever serves the SPA (Caddy, phase 15). `npm run preview --workspace @go-short/web` serves the production build with exactly these headers for checking.
+
+## Production configuration checks
+
+Startup fails in production for: a placeholder or low-variety `SESSION_SECRET` (generate one with `openssl rand -hex 32`), `TRUST_PROXY=true`, a missing `INTERNAL_API_TOKEN` with custom domains on, and metrics listening beyond loopback without `METRICS_TOKEN`. See [monitoring.md](monitoring.md) for the metrics endpoint design.
+
+## Threat model
+
+See [threat-model.md](threat-model.md) for assets, trust boundaries, mitigations with test references, the phase 14 review log, accepted risks and what is not covered yet.
 
 ## Logging
 

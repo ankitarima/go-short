@@ -1,0 +1,25 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+scrape_configs:
+  # goShort services. Each exposes /metrics on its own non-public port (see docs/monitoring.md).
+  - job_name: api
+    authorization: { type: Bearer, credentials_file: /etc/prometheus/metrics-token }
+    static_configs: [{ targets: ['host.docker.internal:9101'] }]
+  - job_name: redirect
+    authorization: { type: Bearer, credentials_file: /etc/prometheus/metrics-token }
+    static_configs: [{ targets: ['host.docker.internal:9102'] }]
+  - job_name: worker
+    authorization: { type: Bearer, credentials_file: /etc/prometheus/metrics-token }
+    static_configs: [{ targets: ['host.docker.internal:9103'] }]
+  # Infrastructure exporters (compose service names).
+  - job_name: postgres
+    static_configs: [{ targets: ['postgres-exporter:9187'] }]
+  - job_name: valkey
+    static_configs: [{ targets: ['redis-exporter:9121'] }]
+  - job_name: prometheus
+    static_configs: [{ targets: ['localhost:9090'] }]

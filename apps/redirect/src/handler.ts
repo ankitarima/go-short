@@ -17,6 +17,7 @@ import {
   tooManyPage,
 } from './pages';
 import type { AnalyticsPublisher } from './publisher';
+import { createRedirectMetrics, type RedirectMetrics, type RedirectOutcome } from './metrics';
 import { LINK_SELECT, LinkResolver } from './resolver';
 
 export interface RedirectDeps {
@@ -25,6 +26,8 @@ export interface RedirectDeps {
   redis: Redis;
   logger: Logger;
   publisher: AnalyticsPublisher;
+  /** Optional: tests and tools can omit it; the service entrypoint supplies the scraped one. */
+  metrics?: RedirectMetrics;
   now?: () => number;
 }
 
@@ -56,6 +59,8 @@ const trunc = (v: string | string[] | undefined, n: number): string | null =>
 export function createRedirectServer(deps: RedirectDeps): Server {
   const { config, prisma, redis, logger, publisher } = deps;
   const now = deps.now ?? Date.now;
+  const metrics = deps.metrics ?? createRedirectMetrics();
+  const count = (outcome: RedirectOutcome) => metrics.requests.inc({ outcome });
   const clientIp = makeClientIp(config.trustProxy);
   const domains = new DomainRegistry(prisma, now);
   const resolver = new LinkResolver({
@@ -64,6 +69,7 @@ export function createRedirectServer(deps: RedirectDeps): Server {
     logger,
     domains,
     ttlSeconds: config.REDIRECT_CACHE_TTL_SECONDS,
+    onCache: (result) => metrics.cache.inc({ result }),
   });
   const sharedHost = config.DEFAULT_SHORT_DOMAIN.toLowerCase();
 
@@ -134,8 +140,10 @@ export function createRedirectServer(deps: RedirectDeps): Server {
     entry: RedirectCacheEntry,
     head: boolean,
   ): boolean {
-    if (!entry.active) return (unavailable(res, 410, disabledPage(), head), true);
-    if (isExpired(entry)) return (unavailable(res, 410, expiredPage(), head), true);
+    if (!entry.active)
+      return (count('disabled'), unavailable(res, 410, disabledPage(), head), true);
+    if (isExpired(entry))
+      return (count('expired'), unavailable(res, 410, expiredPage(), head), true);
     return false;
   }
 
@@ -146,13 +154,16 @@ export function createRedirectServer(deps: RedirectDeps): Server {
     slug: string,
     head: boolean,
   ) {
+    const started = process.hrtime.bigint();
     const r = await resolver.resolve(host, slug);
-    if (r.kind === 'missing') return unavailable(res, 404, notFoundPage(), head);
-    if (r.kind === 'unavailable') return html(res, 503, errorPage(), head);
+    if (r.kind === 'missing')
+      return (count('not_found'), unavailable(res, 404, notFoundPage(), head));
+    if (r.kind === 'unavailable') return (count('unavailable'), html(res, 503, errorPage(), head));
     const e = r.entry;
     if (handleUnavailable(res, e, head)) return;
-    if (e.hasPassword) return html(res, 200, passwordPage(slug), head);
+    if (e.hasPassword) return (count('password_page'), html(res, 200, passwordPage(slug), head));
     if (!e.destinationUrl || !isSafeLocation(e.destinationUrl)) {
+      count('unsafe_destination');
       logger.error({ linkId: e.linkId }, 'refusing unsafe or missing cached destination');
       return html(res, 404, notFoundPage(), head);
     }
@@ -162,6 +173,8 @@ export function createRedirectServer(deps: RedirectDeps): Server {
     const status =
       e.status !== null && ALLOWED_STATUS.has(e.status) ? e.status : config.REDIRECT_STATUS;
     redirect(res, status, e.destinationUrl);
+    count('redirect');
+    metrics.duration.observe(Number(process.hrtime.bigint() - started) / 1e9);
   }
 
   async function readForm(req: IncomingMessage): Promise<URLSearchParams | null> {
@@ -179,8 +192,9 @@ export function createRedirectServer(deps: RedirectDeps): Server {
 
   async function unlock(req: IncomingMessage, res: ServerResponse, host: string, slug: string) {
     const r = await resolver.resolve(host, slug);
-    if (r.kind === 'missing') return unavailable(res, 404, notFoundPage(), false);
-    if (r.kind === 'unavailable') return html(res, 503, errorPage(), false);
+    if (r.kind === 'missing')
+      return (count('not_found'), unavailable(res, 404, notFoundPage(), false));
+    if (r.kind === 'unavailable') return (count('unavailable'), html(res, 503, errorPage(), false));
     const e = r.entry;
     if (handleUnavailable(res, e, false)) return;
     if (!e.hasPassword) return html(res, 404, notFoundPage(), false);
@@ -193,10 +207,11 @@ export function createRedirectServer(deps: RedirectDeps): Server {
         .incr(key)
         .expire(key, UNLOCK_WINDOW_SECONDS, 'NX')
         .exec()) as [[Error | null, number], unknown];
-      if (n > UNLOCK_MAX_ATTEMPTS) return html(res, 429, tooManyPage(), false);
+      if (n > UNLOCK_MAX_ATTEMPTS)
+        return (count('unlock_rate_limited'), html(res, 429, tooManyPage(), false));
     } catch (err) {
       logger.error({ err }, 'unlock rate limiter unavailable');
-      return html(res, 503, errorPage(), false);
+      return (count('unlock_unavailable'), html(res, 503, errorPage(), false));
     }
 
     const form = await readForm(req);
@@ -207,11 +222,15 @@ export function createRedirectServer(deps: RedirectDeps): Server {
     const link = await prisma.link.findFirst({ where: { id: e.linkId }, select: LINK_SELECT });
     if (!link?.passwordHash) return html(res, 404, notFoundPage(), false);
     const ok = await argon2.verify(link.passwordHash, password).catch(() => false);
-    if (!ok) return html(res, 401, passwordPage(slug, 'Incorrect password.'), false);
+    if (!ok) {
+      count('unlock_wrong_password');
+      return html(res, 401, passwordPage(slug, 'Incorrect password.'), false);
+    }
 
     const destination = resolveDestination(link);
     if (!isSafeLocation(destination)) return html(res, 404, notFoundPage(), false);
     publish(req, e);
+    count('unlock_success');
     // 303: the browser follows with GET, so the password POST is never replayed at the destination.
     redirect(res, 303, destination);
   }
@@ -281,7 +300,7 @@ export function createRedirectServer(deps: RedirectDeps): Server {
 
     // Host is only ever used as a lookup key; unknown hosts simply miss. Reject malformed ones early.
     const host = (req.headers.host ?? '').toLowerCase().replace(/\.(?=$|:)/, '');
-    if (!HOST_RE.test(host)) return void res.writeHead(400).end();
+    if (!HOST_RE.test(host)) return void (count('bad_host'), res.writeHead(400).end());
 
     const head = method === 'HEAD';
     if (method === 'GET' || head) {

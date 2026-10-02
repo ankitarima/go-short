@@ -12,6 +12,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "nanoid": "^5"
+    "nanoid": "^5",
+    "prom-client": "^15.1.3"
   }
 }

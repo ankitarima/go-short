@@ -1,0 +1,122 @@
+# Alert rules. Thresholds are starting points, not measured limits: tune them to your traffic.
+# `for:` durations avoid paging on blips; every alert says what to look at first.
+groups:
+  - name: goshort-availability
+    rules:
+      - alert: ServiceDown
+        expr: up{job=~"api|redirect|worker"} == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: '{{ $labels.job }} is not being scraped'
+          description: 'Process down, or its metrics port is unreachable. Check the service logs and /ready.'
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: Postgres is unreachable
+          description: 'Redirects keep working from cache; new links, logins and analytics ingestion will fail.'
+      - alert: ValkeyDown
+        expr: redis_up == 0
+        for: 1m
+        labels: { severity: critical }
+        annotations:
+          summary: Valkey/Redis is unreachable
+          description: 'Redirects fall back to Postgres (slower); rate limits fail open; analytics events buffer in memory.'
+
+  - name: goshort-redirects
+    rules:
+      - alert: RedirectBackendErrors
+        expr: |
+          sum(rate(goshort_redirect_requests_total{outcome="unavailable"}[5m]))
+            / clamp_min(sum(rate(goshort_redirect_requests_total[5m])), 1) > 0.01
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: More than 1% of redirects fail because the database is unavailable
+          description: 'Cache misses cannot be served. Check Postgres, then Valkey.'
+      - alert: RedirectSlow
+        expr: histogram_quantile(0.95, sum by (le) (rate(goshort_redirect_duration_seconds_bucket[5m]))) > 0.1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: p95 redirect handling time is above 100 ms
+          description: 'Usually cache misses (Valkey down or evicting) or a saturated Postgres. See the Redirects dashboard cache panel.'
+      - alert: RedirectCacheDegraded
+        expr: sum(rate(goshort_redirect_cache_total{result="redis_error"}[5m])) > 0
+        for: 2m
+        labels: { severity: warning }
+        annotations:
+          summary: Redirects are falling back to Postgres because Valkey errors
+          description: 'Service stays up but every lookup hits the database.'
+      - alert: UnlockBruteForce
+        expr: sum(rate(goshort_redirect_requests_total{outcome=~"unlock_wrong_password|unlock_rate_limited"}[10m])) > 0.5
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: Sustained wrong-password attempts on protected links
+          description: 'Per-IP limiter is working; consider blocking the source at the proxy.'
+
+  - name: goshort-analytics-pipeline
+    rules:
+      - alert: AnalyticsEventsDropped
+        expr: increase(goshort_analytics_publish_total{event="dropped"}[10m]) > 0
+        labels: { severity: critical }
+        annotations:
+          summary: Click events were dropped because the in-memory buffer overflowed
+          description: 'The queue was unreachable for too long. Counts are permanently lower for this window.'
+      - alert: AnalyticsBufferGrowing
+        expr: max(goshort_analytics_buffered_events) > 1000
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: Redirect service cannot enqueue click events
+          description: 'Events are held in memory until Valkey is reachable; they are lost if the process restarts.'
+      - alert: AnalyticsQueueBacklog
+        expr: goshort_queue_jobs{queue="analytics-events",state="waiting"} > 200
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: Analytics batches are queueing faster than the worker processes them
+          description: 'Scale WORKER_CONCURRENCY or the worker count; check batch duration and Postgres load.'
+      - alert: FailedJobsPresent
+        expr: sum by (queue) (goshort_queue_jobs{state="failed"}) > 0
+        for: 15m
+        labels: { severity: warning }
+        annotations:
+          summary: 'Failed jobs are waiting in the {{ $labels.queue }} queue'
+          description: 'Inspect them under Admin > Queues (retry or delete).'
+      - alert: AnalyticsBatchesFailing
+        expr: sum(rate(goshort_analytics_batches_total{result="failed"}[10m])) > 0
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: Analytics batches keep failing
+          description: 'Check worker logs; usually a Postgres problem.'
+
+  - name: goshort-api
+    rules:
+      - alert: ApiServerErrors
+        expr: |
+          sum(rate(goshort_http_requests_total{status=~"5.."}[5m]))
+            / clamp_min(sum(rate(goshort_http_requests_total[5m])), 0.1) > 0.02
+        for: 5m
+        labels: { severity: critical }
+        annotations:
+          summary: More than 2% of API requests return 5xx
+          description: 'Check the API logs by request id.'
+      - alert: ApiLoginFailureSpike
+        expr: sum(rate(goshort_logins_total{result="failure"}[10m])) > 1
+        for: 10m
+        labels: { severity: warning }
+        annotations:
+          summary: Sustained failed logins (possible credential stuffing)
+          description: 'Per-IP and per-account limiters apply; consider tightening them or blocking at the proxy.'
+      - alert: EventLoopLag
+        expr: max by (job) (nodejs_eventloop_lag_p99_seconds) > 0.2
+        for: 5m
+        labels: { severity: warning }
+        annotations:
+          summary: '{{ $labels.job }} event loop is lagging'
+          description: 'CPU-bound work or a blocked loop; check the process CPU panel.'

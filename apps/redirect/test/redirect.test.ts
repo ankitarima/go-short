@@ -1,4 +1,5 @@
 import request from 'supertest';
+import { createRedirectMetrics } from '../src/metrics';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   listen,
@@ -537,5 +538,47 @@ describe('password-protected links', () => {
       .set('Host', HOST)
       .send({ password: 'open-sesame' });
     expect(json.status).toBe(400);
+  });
+});
+
+describe('metrics', () => {
+  const metric = async (m: ReturnType<typeof createRedirectMetrics>, name: string) =>
+    (await m.registry.getMetricsAsJSON()).find((x) => x.name === name)?.values ?? [];
+  const value = (
+    vals: Array<{ value: number; labels: Record<string, unknown> }>,
+    label: string,
+    v: string,
+  ) => vals.find((x) => x.labels[label] === v)?.value ?? 0;
+
+  it('counts outcomes and cache results without exposing slugs, hosts or URLs as labels', async () => {
+    await setup('hello');
+    const metrics = createRedirectMetrics();
+    const { server } = makeRedirect({ metrics });
+    await get(server, '/hello'); // miss -> postgres
+    await get(server, '/hello'); // cache hit
+    await get(server, '/nope1'); // not found
+    await get(server, '/nope2');
+    await get(server, '/bad', 'bad host!');
+
+    const requests = await metric(metrics, 'goshort_redirect_requests_total');
+    expect(value(requests, 'outcome', 'redirect')).toBe(2);
+    expect(value(requests, 'outcome', 'not_found')).toBe(2);
+    expect(value(requests, 'outcome', 'bad_host')).toBe(1);
+    const cache = await metric(metrics, 'goshort_redirect_cache_total');
+    expect(value(cache, 'result', 'miss')).toBeGreaterThanOrEqual(1);
+    expect(value(cache, 'result', 'hit')).toBe(1);
+
+    const text = await metrics.registry.metrics();
+    expect(text).not.toMatch(/hello|nope1|localhost|example\.org/);
+    expect(text).toContain('goshort_redirect_duration_seconds_bucket');
+  });
+
+  it('counts a Redis outage as redis_error while still redirecting from Postgres', async () => {
+    await setup('hello');
+    const metrics = createRedirectMetrics();
+    const { server } = makeRedirect({ metrics, redis: deadRedis() });
+    expect((await get(server, '/hello')).status).toBe(302);
+    const cache = await metric(metrics, 'goshort_redirect_cache_total');
+    expect(value(cache, 'result', 'redis_error')).toBe(1);
   });
 });

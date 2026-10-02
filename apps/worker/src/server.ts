@@ -1,10 +1,11 @@
 import { loadConfig } from '@go-short/config';
 import { disconnectPrisma, getPrisma } from '@go-short/database';
-import { LocalStorageProvider, QUEUES } from '@go-short/shared';
+import { LocalStorageProvider, QUEUES, startMetricsServer } from '@go-short/shared';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { pino } from 'pino';
 import { Hasher } from './enrich';
+import { createWorkerMetrics } from './metrics';
 import { loadGeo } from './geo';
 import { BatchProcessor } from './processBatch';
 import { createCleanupWorker, scheduleCleanup } from './cleanupWorker';
@@ -52,14 +53,24 @@ if (config.WEBHOOK_ALLOW_INSECURE) {
   );
 }
 
+const metrics = createWorkerMetrics();
+metrics.watchAnalytics(analytics);
+metrics.watchWebhooks(webhooks);
+
 const closers: Array<() => Promise<unknown>> = [() => analytics.close(), () => webhooks.close()];
 const queues = [
   new Queue(QUEUES.analyticsEvents, { connection: commands }),
   new Queue(QUEUES.webhooks, { connection: commands }),
 ];
+const cleanupQueue = new Queue(QUEUES.cleanup, { connection: commands });
+
+metrics.watchQueues({
+  [QUEUES.analyticsEvents]: queues[0]!,
+  [QUEUES.webhooks]: queues[1]!,
+  [QUEUES.cleanup]: cleanupQueue,
+});
 
 if (config.CLEANUP_ENABLED) {
-  const cleanupQueue = new Queue(QUEUES.cleanup, { connection: commands });
   await scheduleCleanup(cleanupQueue);
   const cleanup = createCleanupWorker({
     connection,
@@ -76,6 +87,7 @@ if (config.CLEANUP_ENABLED) {
       },
     },
   });
+  metrics.watchCleanup(cleanup);
   closers.push(
     () => cleanup.close(),
     () => cleanupQueue.close(),
@@ -84,6 +96,16 @@ if (config.CLEANUP_ENABLED) {
   logger.warn('CLEANUP_ENABLED=false: scheduled cleanup and retention jobs are disabled');
 }
 
+const metricsServer = config.METRICS_ENABLED
+  ? startMetricsServer({
+      registry: metrics.registry,
+      host: config.METRICS_HOST,
+      port: config.WORKER_METRICS_PORT,
+      token: config.METRICS_TOKEN,
+      onError: (err) => logger.error({ err }, 'metrics server error'),
+    })
+  : undefined;
+
 logger.info(
   { concurrency: config.WORKER_CONCURRENCY, cleanup: config.CLEANUP_ENABLED },
   'worker started (analytics, webhooks, cleanup)',
@@ -91,9 +113,11 @@ logger.info(
 
 async function shutdown(signal: string) {
   logger.info({ signal }, 'shutting down');
+  metricsServer?.close();
   await Promise.allSettled(closers.map((c) => c())); // waits for in-flight jobs
   await Promise.allSettled([
     ...queues.map((q) => q.close()),
+    cleanupQueue.close(),
     disconnectPrisma(),
     connection.quit(),
     commands.quit(),

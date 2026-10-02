@@ -4,7 +4,9 @@ import cors from 'cors';
 import express, { type Express } from 'express';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
+import { createRegistry } from '@go-short/shared';
 import type { AppContext } from './context';
+import { createApiMetrics, routeLabel } from './metrics';
 import { loadSession, requireApiKey } from './middleware/auth';
 import { errorHandler, notFoundHandler } from './middleware/errors';
 import { adminRouter } from './routes/admin';
@@ -30,6 +32,26 @@ export function createApp(ctx: AppContext): Express {
   app.use((req, res, next) => {
     req.requestId = `req_${randomUUID()}`;
     res.setHeader('X-Request-Id', req.requestId);
+    next();
+  });
+  const metrics = (ctx.metrics ??= createApiMetrics(createRegistry('api', false)));
+  app.use((req, res, next) => {
+    const started = process.hrtime.bigint();
+    res.once('finish', () => {
+      // `req.route` is only known once routing is done, so the label is computed on finish.
+      const route = routeLabel(req);
+      metrics.requests.inc({ method: req.method, route, status: String(res.statusCode) });
+      metrics.duration.observe(
+        { method: req.method, route },
+        Number(process.hrtime.bigint() - started) / 1e9,
+      );
+    });
+    next();
+  });
+  // Authenticated JSON must never sit in a shared or browser cache. Routes that stream files or want
+  // different caching (QR images, exports) set their own header.
+  app.use('/api', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
     next();
   });
   app.use(

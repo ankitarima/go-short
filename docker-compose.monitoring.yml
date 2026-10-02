@@ -1,0 +1,53 @@
+# Optional monitoring stack for LOCAL development: Prometheus + Grafana + Postgres/Valkey exporters.
+#   docker compose -f docker-compose.dev.yml -f docker-compose.monitoring.yml up -d
+# The apps run on the host (`npm run dev`). Their metrics ports bind to 127.0.0.1 by default, which a
+# container cannot reach, so for local use set METRICS_HOST=0.0.0.0 in .env first. Ports below are
+# published on localhost only. The production stack (phase 15) scrapes the services by name instead.
+#
+# All components are free and open source: Prometheus (Apache-2.0), Grafana OSS (AGPL-3.0, used
+# unmodified as a separate service), postgres_exporter (Apache-2.0), redis_exporter (MIT).
+services:
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    ports: ['127.0.0.1:9090:9090']
+    extra_hosts: ['host.docker.internal:host-gateway']
+    volumes:
+      - ./docker/monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      # Bearer token Prometheus sends when scraping (only checked if METRICS_TOKEN is set in .env).
+      - ${METRICS_TOKEN_FILE:-./docker/monitoring/metrics-token.example}:/etc/prometheus/metrics-token:ro
+      - promdata:/prometheus
+  grafana:
+    image: grafana/grafana-oss:13.0.2
+    ports: ['127.0.0.1:3000:3000']
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/redirects.json
+    volumes:
+      - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    depends_on: [prometheus]
+  postgres-exporter:
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      DATA_SOURCE_NAME: postgresql://goshort:goshort@postgres:5432/goshort?sslmode=disable
+    depends_on:
+      postgres: { condition: service_healthy }
+  redis-exporter:
+    image: oliver006/redis_exporter:v1.93.0
+    environment:
+      REDIS_ADDR: redis://redis:6379
+    depends_on:
+      redis: { condition: service_healthy }
+volumes:
+  promdata:
+  grafanadata:

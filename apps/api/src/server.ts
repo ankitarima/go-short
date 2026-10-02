@@ -1,10 +1,11 @@
 import { loadConfig } from '@go-short/config';
 import { disconnectPrisma, getPrisma } from '@go-short/database';
-import { QUEUES } from '@go-short/shared';
+import { QUEUES, createRegistry, startMetricsServer } from '@go-short/shared';
 import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 import { pino } from 'pino';
 import { createApp } from './app';
+import { createApiMetrics } from './metrics';
 import type { AppContext } from './context';
 import { systemDnsResolver } from './services/dns';
 import { ensureSharedDomain } from './services/domains';
@@ -33,8 +34,10 @@ const queueConnection = new Redis(config.REDIS_URL, {
 });
 queueConnection.on('error', (err) => logger.error({ err }, 'queue redis error'));
 
+const metrics = createApiMetrics(createRegistry('api'));
 const ctx: AppContext = {
   config,
+  metrics,
   prisma,
   redis,
   logger,
@@ -53,9 +56,23 @@ const server = app.listen(config.API_PORT, () =>
   logger.info({ port: config.API_PORT }, 'api listening'),
 );
 
+const metricsServer = config.METRICS_ENABLED
+  ? startMetricsServer({
+      registry: metrics.registry,
+      host: config.METRICS_HOST,
+      port: config.API_METRICS_PORT,
+      token: config.METRICS_TOKEN,
+      onError: (err) => logger.error({ err }, 'metrics server error'),
+    })
+  : undefined;
+if (metricsServer) {
+  logger.info({ host: config.METRICS_HOST, port: config.API_METRICS_PORT }, 'metrics listening');
+}
+
 async function shutdown(signal: string) {
   logger.info({ signal }, 'shutting down');
   server.close();
+  metricsServer?.close();
   await Promise.allSettled([disconnectPrisma(), redis.quit(), queueConnection.quit()]);
   process.exit(0);
 }

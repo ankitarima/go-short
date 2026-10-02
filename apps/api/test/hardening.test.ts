@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { loadConfig } from '@go-short/config';
 import { Redis } from 'ioredis';
 import request from 'supertest';
@@ -59,6 +60,7 @@ describe('http hardening', () => {
       config: loadConfig({
         ...process.env,
         NODE_ENV: 'production',
+        SESSION_SECRET: randomBytes(32).toString('hex'),
         INTERNAL_API_TOKEN: 'x'.repeat(20),
       }),
     };
@@ -134,5 +136,90 @@ describe('invitation hygiene', () => {
         })
       ).status;
     expect(last).toBe(429);
+  });
+});
+
+describe('login throttling', () => {
+  it('caps guesses against ONE account even when they come from many IPs', async () => {
+    const trusting = createApp({ ...ctx, config: { ...ctx.config, trustProxy: 1 } });
+    const c = await registerUser(trusting);
+    await ctx.redis.flushdb();
+    const statuses: number[] = [];
+    for (let i = 0; i < 34; i++) {
+      const res = await request(trusting)
+        .post('/api/v1/auth/login')
+        .set('X-Forwarded-For', `203.0.113.${i + 1}`) // a different client every time
+        .send({ email: c.email, password: 'definitely-wrong-password' });
+      statuses.push(res.status);
+    }
+    expect(statuses.slice(0, 30).every((s) => s === 401)).toBe(true);
+    expect(statuses.slice(30).every((s) => s === 429)).toBe(true);
+    // Another account is unaffected, and the key is a hash, not the address.
+    const other = await request(trusting)
+      .post('/api/v1/auth/login')
+      .set('X-Forwarded-For', '198.51.100.9')
+      .send({ email: 'someone-else@example.com', password: 'definitely-wrong-password' });
+    expect(other.status).toBe(401);
+    const keys = await ctx.redis.keys('rl:login-account:*');
+    expect(keys.length).toBeGreaterThan(0);
+    expect(keys.join()).not.toContain('@');
+  });
+});
+
+describe('mass assignment and hostile input', () => {
+  it('ignores privilege-escalation fields on register, profile and workspace creation', async () => {
+    const res = await request(app).post('/api/v1/auth/register').send({
+      email: 'mass@example.com',
+      name: 'Mass',
+      password: 'correct-horse-battery',
+      systemRole: 'ADMIN',
+      emailVerified: true,
+      id: 'chosen-id',
+      passwordHash: 'x',
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.data.user.systemRole).toBe('USER');
+    expect(res.body.data.user.id).not.toBe('chosen-id');
+    const row = await ctx.prisma.user.findUniqueOrThrow({ where: { email: 'mass@example.com' } });
+    expect(row.systemRole).toBe('USER');
+    expect(row.passwordHash).toMatch(/^\$argon2id\$/);
+  });
+
+  it('does not let a client pick another tenant when creating a workspace', async () => {
+    const a = await registerUser(app);
+    const b = await registerUser(app);
+    const res = await post(a, '/api/v1/workspaces', { name: 'Mine', ownerId: b.userId });
+    expect(res.status).toBe(201);
+    const owners = await ctx.prisma.workspaceMember.findMany({
+      where: { workspaceId: res.body.data.id, role: 'OWNER' },
+    });
+    expect(owners.map((m) => m.userId)).toEqual([a.userId]);
+  });
+
+  it('handles prototype-pollution style bodies and malformed JSON without a 500', async () => {
+    const poisoned = await request(app)
+      .post('/api/v1/auth/login')
+      .set('Content-Type', 'application/json')
+      .send('{"__proto__":{"isAdmin":true},"email":"a@b.com","password":"x"}');
+    expect(poisoned.status).toBeLessThan(500);
+    expect(({} as Record<string, unknown>).isAdmin).toBeUndefined();
+    const broken = await request(app)
+      .post('/api/v1/auth/login')
+      .set('Content-Type', 'application/json')
+      .send('{"email":');
+    expect(broken.status).toBe(400);
+    expect(broken.body.success).toBe(false);
+  });
+
+  it('serves only whitelisted documentation assets (no path traversal, no package files)', async () => {
+    for (const p of [
+      '/docs/assets/..%2f..%2fpackage.json',
+      '/docs/assets/package.json',
+      '/docs/assets/%2e%2e%2f%2e%2e%2f.env',
+    ]) {
+      const res = await request(app).get(p);
+      expect(res.status).toBe(404);
+      expect(res.text).not.toContain('"version"');
+    }
   });
 });

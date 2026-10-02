@@ -2,13 +2,13 @@
 
 Single place to see what is done, what is partial and what is not started. **Update this file in the same commit that changes a status.** Statuses are verified against the repository, not aspirational.
 
-_Last updated: 2026-10-01, at the end of phase 13. Backend and frontend are built; security review/metrics, deployment, CI/E2E, load tests and the final README remain._
+_Last updated: 2026-10-01, at the end of phase 14. Backend, frontend, security review and monitoring are done; deployment, CI/E2E, load tests and the final README remain._
 
 Legend: ✅ done · 🟡 partial · ⬜ not started
 
 ## Phases
 
-The spec's 30-step order (section 120) is grouped into phases. **Phases 1-13 are complete.**
+The spec's 30-step order (section 120) is grouped into phases. **Phases 1-14 are complete.**
 
 | #   | Phase                                                                                                                             | Spec steps      | Status |
 | --- | --------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------ |
@@ -25,7 +25,7 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-13 are
 | 11  | OpenAPI 3.1 document, `/docs` UI, route-drift and response-conformance tests, API guide                                           | 23              | ✅     |
 | 12  | Frontend foundation: Vite/React/Tailwind/shadcn setup, routing, auth screens, layout, dashboard                                   | 17              | ✅     |
 | 13  | Frontend features: links, campaigns, QR designer, domains wizard, analytics, team, API keys, settings, admin                      | 17, 21          | ✅     |
-| 14  | Security hardening review and Prometheus metrics + Grafana dashboards                                                             | 24-25           | ⬜     |
+| 14  | Security hardening review and Prometheus metrics + Grafana dashboards                                                             | 24-25           | ✅     |
 | 15  | Docker: production Dockerfiles, compose (dev/prod), Caddy, Coolify docs, backup/restore scripts                                   | 26              | ⬜     |
 | 16  | CI (GitHub Actions), Husky/lint-staged, Playwright E2E                                                                            | 27              | ⬜     |
 | 17  | k6 load tests (100k links), runs at 100/500/1000/2000 RPS, optimization from measurements                                         | 28-30           | ⬜     |
@@ -38,7 +38,7 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-13 are
 | Typecheck (strict, all workspaces)                                             | ✅ clean                                                                                                  |
 | ESLint (no `any`)                                                              | ✅ clean                                                                                                  |
 | Production builds (api, redirect, worker)                                      | ✅                                                                                                        |
-| Tests                                                                          | ✅ 586 passing (api 261, web 96, redirect 46, worker 76, pipeline 6, shared 87, validation 8, config 6)   |
+| Tests                                                                          | ✅ 607 passing (api 272, web 96, shared 90, worker 79, redirect 48, validation 8, config 8, pipeline 6)   |
 | Security tests (IDOR, role matrix, CSRF, rate limits, host abuse, SSRF, keys)  | ✅ for everything built so far, with mutation checks on the critical protections                          |
 | Failure tests (Redis down, Postgres down, queue down, publisher/worker errors) | ✅                                                                                                        |
 | API docs accuracy (valid OpenAPI, route drift, real-response conformance)      | ✅ enforced by tests                                                                                      |
@@ -70,7 +70,7 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-13 are
 | API keys (hashed, shown once, role-scoped, revocable, per-key limits)          | ✅     | tied to membership: revoked on removal, capped on demotion                      |
 | SSRF protection for outbound webhooks                                          | ✅     | resolve, vet every address, pin the connection; no redirects; timeout; size cap |
 | System admin role/area                                                         | ✅     | session only; grant via `scripts/grant-admin.ts`                                |
-| Security hardening review (headers audit, dependency audit, threat-model pass) | ⬜     | phase 14                                                                        |
+| Security hardening review (headers audit, dependency audit, threat-model pass) | ✅     | [threat-model.md](threat-model.md): 6 findings fixed, accepted risks listed     |
 
 ### Domains and links
 
@@ -85,14 +85,14 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-13 are
 
 ### Redirect
 
-| Requirement                                                                            | Status | Notes    |
-| -------------------------------------------------------------------------------------- | ------ | -------- |
-| Redis hot path, Postgres fallback, negative cache, single-flight                       | ✅     |          |
-| Cache invalidation on every mutation, double delete, domain-wide purge                 | ✅     |          |
-| Disabled/expired/not-found pages, optional fallback redirect                           | ✅     |          |
-| Password-protected links (Argon2, limiter, 303)                                        | ✅     |          |
-| Works when Redis or Postgres (cached) is down; analytics failure never breaks redirect | ✅     |          |
-| Prometheus metrics for redirects                                                       | ⬜     | phase 14 |
+| Requirement                                                                            | Status | Notes                          |
+| -------------------------------------------------------------------------------------- | ------ | ------------------------------ |
+| Redis hot path, Postgres fallback, negative cache, single-flight                       | ✅     |                                |
+| Cache invalidation on every mutation, double delete, domain-wide purge                 | ✅     |                                |
+| Disabled/expired/not-found pages, optional fallback redirect                           | ✅     |                                |
+| Password-protected links (Argon2, limiter, 303)                                        | ✅     |                                |
+| Works when Redis or Postgres (cached) is down; analytics failure never breaks redirect | ✅     |                                |
+| Prometheus metrics for redirects                                                       | ✅     | [monitoring.md](monitoring.md) |
 
 ### Analytics
 
@@ -130,17 +130,17 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-13 are
 
 ### Operations and deployment
 
-| Requirement                                                                                      | Status | Notes                                                |
-| ------------------------------------------------------------------------------------------------ | ------ | ---------------------------------------------------- |
-| Dev infrastructure (Postgres 17, Valkey 8) via Docker Compose                                    | ✅     | `docker-compose.dev.yml` runs infra only             |
-| Production Dockerfiles, `docker-compose.yml` / `.prod.yml`, Caddy, healthchecks, resource limits | ⬜     | phase 15                                             |
-| Coolify documentation                                                                            | ⬜     | phase 15                                             |
-| Backup/restore scripts and docs                                                                  | ⬜     | phase 15                                             |
-| Health and readiness endpoints                                                                   | 🟡     | api and redirect have them; the worker has none yet  |
-| Cleanup jobs (sessions, retention, stale domains, expired links, orphan files, failed jobs)      | ✅     | [operations.md](operations.md)                       |
-| Prometheus metrics, Grafana dashboards                                                           | ⬜     | phase 14                                             |
-| CI, Husky/lint-staged                                                                            | ⬜     | phase 16                                             |
-| GeoIP database download script                                                                   | ✅     | `scripts/download-geoip.sh` (not bundled; CC BY 4.0) |
+| Requirement                                                                                      | Status | Notes                                                                     |
+| ------------------------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------- |
+| Dev infrastructure (Postgres 17, Valkey 8) via Docker Compose                                    | ✅     | `docker-compose.dev.yml` runs infra only                                  |
+| Production Dockerfiles, `docker-compose.yml` / `.prod.yml`, Caddy, healthchecks, resource limits | ⬜     | phase 15                                                                  |
+| Coolify documentation                                                                            | ⬜     | phase 15                                                                  |
+| Backup/restore scripts and docs                                                                  | ⬜     | phase 15                                                                  |
+| Health and readiness endpoints                                                                   | 🟡     | api and redirect have them; the worker has none yet                       |
+| Cleanup jobs (sessions, retention, stale domains, expired links, orphan files, failed jobs)      | ✅     | [operations.md](operations.md)                                            |
+| Prometheus metrics, Grafana dashboards, alert rules                                              | ✅     | [monitoring.md](monitoring.md) (dev stack; production wiring is phase 15) |
+| CI, Husky/lint-staged                                                                            | ⬜     | phase 16                                                                  |
+| GeoIP database download script                                                                   | ✅     | `scripts/download-geoip.sh` (not bundled; CC BY 4.0)                      |
 
 ### Frontend (`apps/web`)
 

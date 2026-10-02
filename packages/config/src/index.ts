@@ -82,8 +82,42 @@ const schema = z
       .transform((v) => v || undefined),
     /** Shared secret for internal endpoints (Caddy on-demand TLS "ask"). Required in production when custom domains are on. */
     INTERNAL_API_TOKEN: z.string().min(16).optional(),
+    /** Prometheus metrics are served on a separate, non-public port per process (never on the public listener). */
+    METRICS_ENABLED: bool.default(true),
+    /** Bind address for the metrics ports. Loopback by default; use 0.0.0.0 only on a private network, with METRICS_TOKEN. */
+    METRICS_HOST: z.string().min(1).default('127.0.0.1'),
+    /** Optional bearer token required to scrape metrics. Required in production when METRICS_HOST is not loopback. */
+    METRICS_TOKEN: z.string().min(16).optional(),
+    API_METRICS_PORT: z.coerce.number().int().min(1).max(65535).default(9101),
+    REDIRECT_METRICS_PORT: z.coerce.number().int().min(1).max(65535).default(9102),
+    WORKER_METRICS_PORT: z.coerce.number().int().min(1).max(65535).default(9103),
   })
   .superRefine((c, ctx) => {
+    if (c.NODE_ENV === 'production') {
+      // The shipped .env.example value passes the length check; it must never run in production.
+      if (/change[-_ ]?me|example|secret|password/i.test(c.SESSION_SECRET)) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['SESSION_SECRET'],
+          message: 'looks like a placeholder; generate one with: openssl rand -hex 32',
+        });
+      }
+      if (new Set(c.SESSION_SECRET).size < 10) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['SESSION_SECRET'],
+          message: 'has too little variety to be random; generate one with: openssl rand -hex 32',
+        });
+      }
+      const loopback = ['127.0.0.1', '::1', 'localhost'].includes(c.METRICS_HOST);
+      if (c.METRICS_ENABLED && !loopback && !c.METRICS_TOKEN) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['METRICS_TOKEN'],
+          message: 'required in production when METRICS_HOST is not loopback (min 16 chars)',
+        });
+      }
+    }
     if (c.NODE_ENV === 'production' && c.FEATURE_CUSTOM_DOMAINS && !c.INTERNAL_API_TOKEN) {
       ctx.addIssue({
         code: 'custom',

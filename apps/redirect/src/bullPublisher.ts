@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { ANALYTICS_JOB_OPTIONS, type AnalyticsBatch, type AnalyticsEvent } from '@go-short/shared';
 import type { Queue } from 'bullmq';
 import type { Logger } from 'pino';
+import type { PublishEvent } from './metrics';
 import type { AnalyticsPublisher } from './publisher';
 
 interface Options {
@@ -10,6 +11,7 @@ interface Options {
   flushMs: number;
   batchMax: number;
   bufferMax: number;
+  onEvent?: (event: PublishEvent, count: number) => void;
 }
 
 /**
@@ -54,6 +56,7 @@ export class BullmqPublisher implements AnalyticsPublisher {
     const drop = this.buffer.length - this.o.bufferMax + this.o.batchMax;
     this.buffer.splice(0, drop);
     this.dropped += drop;
+    this.o.onEvent?.('dropped', drop);
     this.o.logger.error(
       { dropped: this.dropped, bufferMax: this.o.bufferMax },
       'analytics buffer full, dropped oldest events',
@@ -77,9 +80,11 @@ export class BullmqPublisher implements AnalyticsPublisher {
         { ...ANALYTICS_JOB_OPTIONS, jobId: batchId },
       );
       this.retryNotBefore = 0; // healthy again: clear the failure backoff
+      this.o.onEvent?.('published', events.length);
       return true;
     } catch (err) {
       this.buffer.unshift(...events);
+      this.o.onEvent?.('failed', 1);
       this.enforceCap(); // in-flight events returning to the buffer must not break the memory bound
       this.retryNotBefore = Date.now() + 1000; // do not hammer a down Redis on every publish
       const t = Date.now();

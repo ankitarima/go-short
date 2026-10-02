@@ -4,7 +4,8 @@ import { Redis } from 'ioredis';
 import { pino } from 'pino';
 import { createRedirectServer } from './handler';
 import { Queue } from 'bullmq';
-import { QUEUES, type AnalyticsBatch } from '@go-short/shared';
+import { QUEUES, createRegistry, startMetricsServer, type AnalyticsBatch } from '@go-short/shared';
+import { createRedirectMetrics } from './metrics';
 import { BullmqPublisher } from './bullPublisher';
 
 const config = loadConfig();
@@ -29,12 +30,14 @@ const queueConnection = new Redis(config.REDIS_URL, {
   retryStrategy: (n) => Math.min(n * 100, 2000),
 });
 queueConnection.on('error', () => undefined);
-const publisher = new BullmqPublisher({
+const metrics = createRedirectMetrics(createRegistry('redirect'), () => publisher.pending);
+const publisher: BullmqPublisher = new BullmqPublisher({
   queue: new Queue<AnalyticsBatch>(QUEUES.analyticsEvents, { connection: queueConnection }),
   logger,
   flushMs: config.ANALYTICS_BATCH_FLUSH_MS,
   batchMax: config.ANALYTICS_BATCH_MAX,
   bufferMax: config.ANALYTICS_BUFFER_MAX,
+  onEvent: (event, n) => metrics.analytics.inc({ event }, n),
 });
 
 const server = createRedirectServer({
@@ -43,15 +46,27 @@ const server = createRedirectServer({
   redis,
   logger,
   publisher,
+  metrics,
 });
 server.listen(config.REDIRECT_PORT, () =>
   logger.info({ port: config.REDIRECT_PORT }, 'redirect listening'),
 );
 
+const metricsServer = config.METRICS_ENABLED
+  ? startMetricsServer({
+      registry: metrics.registry,
+      host: config.METRICS_HOST,
+      port: config.REDIRECT_METRICS_PORT,
+      token: config.METRICS_TOKEN,
+      onError: (err) => logger.error({ err }, 'metrics server error'),
+    })
+  : undefined;
+
 async function shutdown(signal: string) {
   logger.info({ signal }, 'shutting down');
   // Stop accepting, drop idle keep-alive sockets (otherwise close() waits for them), let in-flight finish.
   server.close();
+  metricsServer?.close();
   server.closeIdleConnections();
   await publisher.close();
   const force = setTimeout(() => server.closeAllConnections(), 10_000);

@@ -8,3 +8,4 @@ export * from './ssrf';
 export * from './secrets';
 export * from './storage';
 export * from './webhooks';
+export * from './metrics';

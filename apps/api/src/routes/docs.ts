@@ -8,7 +8,7 @@ const require = createRequire(import.meta.url);
 
 const PAGE = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Go-Short API</title>
+<title>goShort API</title>
 <link rel="stylesheet" href="/docs/assets/swagger-ui.css">
 </head><body><div id="swagger-ui"></div>
 <script src="/docs/assets/swagger-ui-bundle.js"></script>

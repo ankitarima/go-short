@@ -1,5 +1,7 @@
 # Dev infrastructure only; run apps on the host with `npm run dev`.
 # Ports are bound to localhost only.
+# Valkey runs with `noeviction`: BullMQ keeps queue state in it and refuses to trust an instance that may
+# evict keys. Every cache key has a TTL, so memory is bounded by expiry, not eviction.
 services:
   postgres:
     image: postgres:17-alpine
@@ -15,7 +17,7 @@ services:
       retries: 10
   redis:
     image: valkey/valkey:8-alpine
-    command: ['valkey-server', '--appendonly', 'yes', '--maxmemory-policy', 'volatile-lru']
+    command: ['valkey-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
     ports: ['127.0.0.1:6379:6379']
     volumes: [redisdata:/data]
     healthcheck:

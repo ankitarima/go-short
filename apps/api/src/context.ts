@@ -6,6 +6,7 @@ import type { Logger } from 'pino';
 import type { DnsResolver } from './services/dns';
 import type { StorageProvider } from '@go-short/shared';
 import type { EmailProvider } from './services/email';
+import type { ApiMetrics } from './metrics';
 
 /** Everything a route needs; injected so tests can supply real-but-isolated instances. */
 /** BullMQ queues the API enqueues to / inspects. */
@@ -24,4 +25,6 @@ export interface AppContext {
   dns: DnsResolver;
   storage: StorageProvider;
   queues: QueueRegistry;
+  /** Created by createApp when not supplied (tests); server.ts supplies the one that is scraped. */
+  metrics?: ApiMetrics;
 }
