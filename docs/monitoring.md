@@ -52,7 +52,7 @@ docker compose -f docker-compose.dev.yml -f docker-compose.monitoring.yml up -d
 - If you set `METRICS_TOKEN`, point `METRICS_TOKEN_FILE` at a file containing it (the compose file mounts it for Prometheus).
 - Postgres and Valkey are scraped through `postgres_exporter` and `redis_exporter`.
 
-Ports are bound to `127.0.0.1`. The compose file is for development; the production deployment (phase 15) will scrape services by name on the internal network and will not publish Prometheus or Grafana publicly.
+Ports are bound to `127.0.0.1`. This compose file is for development. In production, use the `monitoring` profile of `docker-compose.prod.yml` ([deployment.md](deployment.md)): it scrapes the services by name on the private network with the `METRICS_TOKEN`, and Grafana is reachable only through an SSH tunnel. The same dashboards and rules are used.
 
 ## Dashboards
 

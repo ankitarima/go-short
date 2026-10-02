@@ -1,0 +1,252 @@
+# Production stack on ONE host: Caddy (TLS + routing) -> api / redirect -> worker, Postgres, Valkey.
+#
+#   cp .env.production.example .env.production      # then fill it in (see docs/deployment.md)
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+#
+# Only Caddy publishes ports. Postgres, Valkey and every metrics port stay on the private network.
+# Resource limits are conservative starting points, not measured requirements: tune them.
+name: goshort
+
+x-app: &app
+  restart: unless-stopped
+  init: true
+  read_only: true
+  tmpfs: ['/tmp']
+  cap_drop: [ALL]
+  security_opt: ['no-new-privileges:true']
+  networks: [internal]
+  logging: &logging
+    driver: json-file
+    options: { max-size: '10m', max-file: '5' }
+
+x-env: &env
+  NODE_ENV: production
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgresql://${POSTGRES_USER:-goshort}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-goshort}
+  REDIS_URL: redis://:${VALKEY_PASSWORD:?set VALKEY_PASSWORD}@valkey:6379
+  SESSION_SECRET: ${SESSION_SECRET:?set SESSION_SECRET (openssl rand -hex 32)}
+  APP_URL: https://${APP_DOMAIN:?set APP_DOMAIN}
+  DEFAULT_SHORT_DOMAIN: ${DEFAULT_SHORT_DOMAIN:?set DEFAULT_SHORT_DOMAIN}
+  INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN:?set INTERNAL_API_TOKEN (openssl rand -hex 24)}
+  # One hop: Caddy. Never "true".
+  TRUST_PROXY: '1'
+  METRICS_HOST: 0.0.0.0
+  METRICS_TOKEN: ${METRICS_TOKEN:?set METRICS_TOKEN (openssl rand -hex 24)}
+  REDIRECT_STATUS: ${REDIRECT_STATUS:-302}
+  FEATURE_CUSTOM_DOMAINS: ${FEATURE_CUSTOM_DOMAINS:-true}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-goshort}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-goshort}
+    volumes: [pgdata:/var/lib/postgresql/data]
+    networks: [internal]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    logging: *logging
+    deploy: { resources: { limits: { memory: 1g } } }
+
+  valkey:
+    image: valkey/valkey:8-alpine
+    restart: unless-stopped
+    # noeviction: BullMQ keeps queue state here. AOF so queued analytics survive a restart.
+    command:
+      - valkey-server
+      - --appendonly
+      - 'yes'
+      - --maxmemory-policy
+      - noeviction
+      - --requirepass
+      - ${VALKEY_PASSWORD:?set VALKEY_PASSWORD}
+    volumes: [valkeydata:/data]
+    networks: [internal]
+    healthcheck:
+      test: ['CMD-SHELL', 'valkey-cli -a "$$REDISCLI_AUTH" --no-auth-warning ping | grep -q PONG']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    environment:
+      REDISCLI_AUTH: ${VALKEY_PASSWORD}
+    logging: *logging
+    deploy: { resources: { limits: { memory: 512m } } }
+
+  migrate:
+    build: { context: ., target: migrate }
+    image: goshort-migrate:local
+    restart: 'no'
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-goshort}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-goshort}
+    depends_on:
+      postgres: { condition: service_healthy }
+    networks: [internal]
+    logging: *logging
+
+  api:
+    <<: *app
+    build: { context: ., target: api }
+    image: goshort-api:local
+    environment:
+      <<: *env
+      API_PORT: '4000'
+      API_METRICS_PORT: '9101'
+      CORS_ORIGINS: ''
+    volumes: [appdata:/data]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      valkey: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 512m } } }
+
+  redirect:
+    <<: *app
+    build: { context: ., target: redirect }
+    image: goshort-redirect:local
+    environment:
+      <<: *env
+      REDIRECT_PORT: '4001'
+      REDIRECT_METRICS_PORT: '9102'
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      valkey: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 256m } } }
+
+  worker:
+    <<: *app
+    build: { context: ., target: worker }
+    image: goshort-worker:local
+    environment:
+      <<: *env
+      WORKER_METRICS_PORT: '9103'
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY:-4}
+    volumes: [appdata:/data]
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      valkey: { condition: service_healthy }
+    deploy: { resources: { limits: { memory: 512m } } }
+
+  web:
+    build: { context: ., target: web }
+    image: goshort-web:local
+    restart: unless-stopped
+    init: true
+    read_only: true
+    tmpfs: ['/tmp']
+    cap_drop: [ALL]
+    cap_add: [NET_BIND_SERVICE]
+    security_opt: ['no-new-privileges:true']
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL}
+      INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+    ports:
+      - '${HTTP_PORT:-80}:80'
+      - '${HTTPS_PORT:-443}:443'
+      - '${HTTPS_PORT:-443}:443/udp'
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://127.0.0.1:2019/config/ >/dev/null 2>&1'] # Caddy admin API, loopback only
+      interval: 15s
+      timeout: 3s
+      retries: 5
+    depends_on:
+      api: { condition: service_healthy }
+      redirect: { condition: service_healthy }
+    networks: [internal]
+    logging: *logging
+    deploy: { resources: { limits: { memory: 192m } } }
+
+  # ---- optional, `--profile tools` ----
+  # One-off: download the free DB-IP GeoIP database into the data volume.
+  #   docker compose --env-file .env.production -f docker-compose.prod.yml --profile tools run --rm geoip
+  geoip:
+    profiles: [tools]
+    image: alpine:3.21
+    environment:
+      GEOIP_DATABASE_PATH: /data/geoip/dbip-city-lite.mmdb
+    volumes:
+      - appdata:/data
+      - ./scripts/download-geoip.sh:/download-geoip.sh:ro
+    entrypoint: ['/bin/sh', '-c']
+    # Runs as root only to install curl; the file is handed to the app user (uid 1000) afterwards.
+    command:
+      [
+        'apk add --no-cache --quiet bash curl coreutils && bash /download-geoip.sh && chown -R 1000:1000 /data/geoip',
+      ]
+    networks: [internal]
+
+  # ---- optional, `--profile monitoring` (see docs/monitoring.md) ----
+  prometheus:
+    profiles: [monitoring]
+    image: prom/prometheus:v3.15.0
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=15d
+    volumes:
+      - ./docker/monitoring/prometheus/prometheus.prod.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/monitoring/prometheus/rules:/etc/prometheus/rules:ro
+      - promdata:/prometheus
+    environment:
+      METRICS_TOKEN: ${METRICS_TOKEN}
+    # The token file is generated at start so it never lives in the repository.
+    entrypoint:
+      [
+        '/bin/sh',
+        '-c',
+        'printf %s "$$METRICS_TOKEN" > /tmp/metrics-token && exec /bin/prometheus "$$@"',
+        '--',
+      ]
+    networks: [internal]
+    logging: *logging
+  grafana:
+    profiles: [monitoring]
+    image: grafana/grafana-oss:13.0.2
+    restart: unless-stopped
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD}
+      GF_USERS_ALLOW_SIGN_UP: 'false'
+      GF_ANALYTICS_REPORTING_ENABLED: 'false'
+      GF_ANALYTICS_CHECK_FOR_UPDATES: 'false'
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/redirects.json
+    # Reach Grafana through an SSH tunnel: ssh -L 3000:127.0.0.1:3000 host
+    ports: ['127.0.0.1:${GRAFANA_PORT:-3000}:3000']
+    volumes:
+      - ./docker/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafanadata:/var/lib/grafana
+    networks: [internal]
+    logging: *logging
+  postgres-exporter:
+    profiles: [monitoring]
+    image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1
+    environment:
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-goshort}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-goshort}?sslmode=disable
+    networks: [internal]
+  redis-exporter:
+    profiles: [monitoring]
+    image: oliver006/redis_exporter:v1.93.0
+    environment:
+      REDIS_ADDR: redis://valkey:6379
+      REDIS_PASSWORD: ${VALKEY_PASSWORD}
+    networks: [internal]
+
+networks:
+  internal: {}
+
+volumes:
+  pgdata:
+  valkeydata:
+  appdata:
+  caddy_data:
+  caddy_config:
+  promdata:
+  grafanadata:

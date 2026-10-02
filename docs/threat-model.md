@@ -91,9 +91,13 @@ The fix offered by npm is a downgrade to Prisma 6, which is not appropriate. Rev
 - Local file storage is the only storage provider shipped.
 - The web CSP keeps `style-src 'unsafe-inline'` because the toast library injects a `<style>` element; scripts remain strictly `'self'`.
 
+### Hardening added in phase 15
+
+Runtime containers run non-root with a read-only root filesystem, all capabilities dropped and `no-new-privileges`; Postgres, Valkey and the metrics ports are on a private network with passwords/tokens; only the edge publishes ports; the Prisma CLI (and its advisories) is not in any runtime image; the edge never proxies `/metrics`, `/internal` or `/ready`, and serves the CSP from `apps/web/security-headers.ts`; on-demand certificates are issued only for hostnames the API approves. Verified by running the built stack (see [deployment.md](deployment.md)).
+
 ### Not covered yet
 
-Container and network hardening, TLS/Caddy configuration and its security headers, secrets handling in the deployment, database/Valkey authentication and network isolation, backup encryption and restore drills (phase 15); automated dependency/secret scanning in CI and browser E2E security checks (phase 16). Free tools suited to those phases: Trivy (Apache-2.0), gitleaks (MIT), OSV-Scanner (Apache-2.0), OWASP ZAP (Apache-2.0).
+Certificate issuance against the real Let's Encrypt, a real Coolify deployment, host-level hardening (SSH, firewall, OS patching, which are the operator's job), encryption at rest of volumes, and an automated image/dependency/secret scan in CI plus browser E2E security checks (phase 16). Free tools suited to the CI step: Trivy (Apache-2.0), gitleaks (MIT), OSV-Scanner (Apache-2.0), OWASP ZAP (Apache-2.0).
 
 ## Reporting a vulnerability
 

@@ -171,7 +171,7 @@ export function webhooksRouter(ctx: AppContext): Router {
         type: WEBHOOK_TEST_EVENT,
         workspaceId: w.workspaceId,
         createdAt: new Date().toISOString(),
-        data: { message: 'This is a test event from Go-Short.' },
+        data: { message: 'This is a test event from goShort.' },
       };
       await ctx.queues.webhooks.add('delivery', job, { ...WEBHOOK_JOB_OPTIONS, jobId: deliveryId });
       res.status(202).json({ success: true, data: { deliveryId } });

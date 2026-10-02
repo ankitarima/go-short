@@ -1,0 +1,58 @@
+# Plain-HTTP variant for when ANOTHER proxy terminates TLS in front of this container (Coolify's
+# Traefik, a cloud load balancer, ...). Same routing and security headers, no certificates.
+#   caddy run --config /etc/caddy/Caddyfile.http
+#
+# Short-link domains are routed to the redirect service by that outer proxy directly, or reach this
+# container too, in which case the catch-all below forwards them. Custom domains then need to be added to
+# the outer proxy by hand (see docs/coolify.md): this variant cannot issue certificates on demand.
+{
+	auto_https off
+	admin off
+	servers {
+		# The outer proxy is on a private network; believe its X-Forwarded-For.
+		trusted_proxies static private_ranges
+	}
+}
+
+:80 {
+	encode zstd gzip
+
+	@health path /healthz
+	handle @health {
+		respond "ok" 200
+	}
+
+	# The API is only served on the app's own hostname, never on short-link or customer domains.
+	@api {
+		host {$APP_DOMAIN}
+		path /api/* /docs /docs/* /openapi.json
+	}
+	handle @api {
+		reverse_proxy api:4000
+	}
+
+	@app host {$APP_DOMAIN}
+	handle @app {
+		root * /srv
+		header {
+			Strict-Transport-Security "max-age=31536000"
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+			X-Content-Type-Options nosniff
+			Referrer-Policy strict-origin-when-cross-origin
+			X-Frame-Options DENY
+			Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+			Cross-Origin-Opener-Policy same-origin
+			-Server
+		}
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@shell not path /assets/*
+		header @shell Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+
+	handle {
+		reverse_proxy redirect:4001
+	}
+}

@@ -14,7 +14,7 @@ const toJson = (schema: z.ZodType): S =>
   strip(z.toJSONSchema(schema, { io: 'input', unrepresentable: 'any' }) as S);
 
 const GUIDE = `
-Go-Short is a self-hosted URL shortener, QR code and campaign analytics platform. This is the reference for its HTTP API.
+goShort is a self-hosted URL shortener, QR code and campaign analytics platform. This is the reference for its HTTP API.
 
 ## Authentication
 Two ways to call the API:
@@ -250,7 +250,7 @@ export function buildOpenApi(serverUrl: string): { document: S; operations: Buil
   const document: S = {
     openapi: '3.1.0',
     info: {
-      title: 'Go-Short API',
+      title: 'goShort API',
       version: '1.0.0',
       description: GUIDE,
       license: { name: 'MIT', identifier: 'MIT' },

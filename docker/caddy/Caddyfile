@@ -1,0 +1,61 @@
+# Production edge (standalone): automatic HTTPS for the app domain, and ON-DEMAND certificates for the
+# shared short domain and customers' verified custom domains.
+#
+# Required environment: APP_DOMAIN (e.g. app.example.com), ACME_EMAIL, INTERNAL_API_TOKEN.
+# The CSP and friends mirror apps/web/security-headers.ts: keep them in sync.
+{
+	email {$ACME_EMAIL}
+
+	# A certificate is only requested for a hostname the API says is the shared domain or a VERIFIED
+	# custom domain, so random Host headers cannot make Caddy burn Let's Encrypt rate limits.
+	on_demand_tls {
+		ask http://api:4000/internal/tls-check?token={$INTERNAL_API_TOKEN}
+	}
+}
+
+# ---- the web app and the API: https://{$APP_DOMAIN} ----
+{$APP_DOMAIN} {
+	encode zstd gzip
+
+	# `/api/` with the slash: the SPA has a client route `/api-keys`.
+	@api path /api/* /docs /docs/* /openapi.json
+	handle @api {
+		reverse_proxy api:4000
+	}
+
+	handle {
+		root * /srv
+		header {
+			Strict-Transport-Security "max-age=31536000"
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+			X-Content-Type-Options nosniff
+			Referrer-Policy strict-origin-when-cross-origin
+			X-Frame-Options DENY
+			Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+			Cross-Origin-Opener-Policy same-origin
+			-Server
+		}
+		@assets path /assets/*
+		header @assets Cache-Control "public, max-age=31536000, immutable"
+		@shell not path /assets/*
+		header @shell Cache-Control "no-cache"
+		try_files {path} /index.html
+		file_server
+	}
+}
+
+# ---- every other hostname is a short-link domain ----
+https:// {
+	tls {
+		on_demand
+	}
+	reverse_proxy redirect:4001 {
+		# Caddy is the edge here, so it sets X-Forwarded-For itself from the TCP peer.
+		header_up -X-Forwarded-Host
+	}
+}
+
+# Plain-HTTP requests for short domains go to HTTPS (ACME challenges are answered before this runs).
+http:// {
+	redir https://{host}{uri} permanent
+}

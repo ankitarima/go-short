@@ -8,4 +8,6 @@ export default defineConfig({
   outDir: 'dist',
   clean: true,
   noExternal: [/^@go-short\//],
+  // Dependency of @go-short/shared (bundled as source): CommonJS that cannot be inlined into an ES module.
+  external: ['prom-client'],
 });

@@ -2,13 +2,13 @@
 
 Single place to see what is done, what is partial and what is not started. **Update this file in the same commit that changes a status.** Statuses are verified against the repository, not aspirational.
 
-_Last updated: 2026-10-01, at the end of phase 14. Backend, frontend, security review and monitoring are done; deployment, CI/E2E, load tests and the final README remain._
+_Last updated: 2026-10-01, at the end of phase 15. Everything is built and packaged for deployment; the Coolify deployment, CI/E2E, load tests and the final README remain._
 
 Legend: ✅ done · 🟡 partial · ⬜ not started
 
 ## Phases
 
-The spec's 30-step order (section 120) is grouped into phases. **Phases 1-14 are complete.**
+The spec's 30-step order (section 120) is grouped into phases. **Phases 1-15 are complete.**
 
 | #   | Phase                                                                                                                             | Spec steps      | Status |
 | --- | --------------------------------------------------------------------------------------------------------------------------------- | --------------- | ------ |
@@ -26,8 +26,8 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-14 are
 | 12  | Frontend foundation: Vite/React/Tailwind/shadcn setup, routing, auth screens, layout, dashboard                                   | 17              | ✅     |
 | 13  | Frontend features: links, campaigns, QR designer, domains wizard, analytics, team, API keys, settings, admin                      | 17, 21          | ✅     |
 | 14  | Security hardening review and Prometheus metrics + Grafana dashboards                                                             | 24-25           | ✅     |
-| 15  | Docker: production Dockerfiles, compose (dev/prod), Caddy, Coolify docs, backup/restore scripts                                   | 26              | ⬜     |
-| 16  | CI (GitHub Actions), Husky/lint-staged, Playwright E2E                                                                            | 27              | ⬜     |
+| 15  | Docker: production Dockerfiles, compose (dev/prod), Caddy, Coolify docs, backup/restore scripts                                   | 26              | ✅     |
+| 16  | Coolify deployment (first real deploy), CI (GitHub Actions), Husky, Playwright E2E                                                | 27              | ⬜     |
 | 17  | k6 load tests (100k links), runs at 100/500/1000/2000 RPS, optimization from measurements                                         | 28-30           | ⬜     |
 | 18  | Final docs (README, deployment, backup-restore, database refresh), final report                                                   | (final)         | ⬜     |
 
@@ -130,17 +130,17 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-14 are
 
 ### Operations and deployment
 
-| Requirement                                                                                      | Status | Notes                                                                     |
-| ------------------------------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------- |
-| Dev infrastructure (Postgres 17, Valkey 8) via Docker Compose                                    | ✅     | `docker-compose.dev.yml` runs infra only                                  |
-| Production Dockerfiles, `docker-compose.yml` / `.prod.yml`, Caddy, healthchecks, resource limits | ⬜     | phase 15                                                                  |
-| Coolify documentation                                                                            | ⬜     | phase 15                                                                  |
-| Backup/restore scripts and docs                                                                  | ⬜     | phase 15                                                                  |
-| Health and readiness endpoints                                                                   | 🟡     | api and redirect have them; the worker has none yet                       |
-| Cleanup jobs (sessions, retention, stale domains, expired links, orphan files, failed jobs)      | ✅     | [operations.md](operations.md)                                            |
-| Prometheus metrics, Grafana dashboards, alert rules                                              | ✅     | [monitoring.md](monitoring.md) (dev stack; production wiring is phase 15) |
-| CI, Husky/lint-staged                                                                            | ⬜     | phase 16                                                                  |
-| GeoIP database download script                                                                   | ✅     | `scripts/download-geoip.sh` (not bundled; CC BY 4.0)                      |
+| Requirement                                                                                      | Status | Notes                                                                                                       |
+| ------------------------------------------------------------------------------------------------ | ------ | ----------------------------------------------------------------------------------------------------------- |
+| Dev infrastructure (Postgres 17, Valkey 8) via Docker Compose                                    | ✅     | `docker-compose.dev.yml` runs infra only                                                                    |
+| Production Dockerfiles, `docker-compose.yml` / `.prod.yml`, Caddy, healthchecks, resource limits | ✅     | [deployment.md](deployment.md); limits are unmeasured starting points                                       |
+| Coolify documentation                                                                            | 🟡     | [coolify.md](coolify.md) written and the compose variant run locally; first real Coolify deploy is phase 16 |
+| Backup/restore scripts and docs                                                                  | ✅     | [backup-restore.md](backup-restore.md); restore tested end to end; `age` encryption path untested           |
+| Health and readiness endpoints                                                                   | 🟡     | api and redirect have them; the worker has none yet                                                         |
+| Cleanup jobs (sessions, retention, stale domains, expired links, orphan files, failed jobs)      | ✅     | [operations.md](operations.md)                                                                              |
+| Prometheus metrics, Grafana dashboards, alert rules                                              | ✅     | [monitoring.md](monitoring.md) (dev stack; production wiring is phase 15)                                   |
+| CI, Husky/lint-staged                                                                            | ⬜     | phase 16                                                                                                    |
+| GeoIP database download script                                                                   | ✅     | `scripts/download-geoip.sh` (not bundled; CC BY 4.0)                                                        |
 
 ### Frontend (`apps/web`)
 
@@ -148,14 +148,14 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-14 are
 
 ### Documentation
 
-| Document                                                                                                        | Status                                                                                   |
-| --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| architecture, redirect-system, analytics, security, custom-domains, performance, qr, campaigns, api, operations | ✅ written (keep in sync as features land)                                               |
-| roadmap (this file)                                                                                             | ✅                                                                                       |
-| `LICENSE`, `THIRD_PARTY_LICENSES.md`                                                                            | ✅ licenses verified from installed packages (confirm the copyright holder in `LICENSE`) |
-| `docs/database.md`                                                                                              | ✅ refreshed for the current schema                                                      |
-| deployment, backup-restore                                                                                      | ⬜ phase 15/18                                                                           |
-| README (features, local dev, env vars, Docker, Coolify, monitoring, troubleshooting)                            | ⬜ phase 18                                                                              |
+| Document                                                                                                        | Status                                                                                              |
+| --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| architecture, redirect-system, analytics, security, custom-domains, performance, qr, campaigns, api, operations | ✅ written (keep in sync as features land)                                                          |
+| roadmap (this file)                                                                                             | ✅                                                                                                  |
+| `LICENSE`, `THIRD_PARTY_LICENSES.md`                                                                            | ✅ licenses verified from installed packages (confirm the copyright holder in `LICENSE`)            |
+| `docs/database.md`                                                                                              | ✅ refreshed for the current schema                                                                 |
+| deployment, backup-restore, coolify                                                                             | ✅ [deployment.md](deployment.md), [backup-restore.md](backup-restore.md), [coolify.md](coolify.md) |
+| README (features, local dev, env vars, Docker, Coolify, monitoring, troubleshooting)                            | ⬜ phase 18                                                                                         |
 
 ## Decisions and deviations from the original spec
 
@@ -180,5 +180,5 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-14 are
 - In a non-UTC timezone, unique visitors and breakdowns are aggregated by UTC day and can differ slightly from the exact timeline at the edges of the range (stated in `meta.notes`).
 - Webhook emission is best-effort (never fails the originating request; lost if the queue is down at that moment).
 - Email delivery is console-only; reset and invitation links are not delivered in production until an `EmailProvider` adapter exists.
-- Intermittent test anomalies seen once each and **never reproduced** in many reruns: a pipeline test failure, a 10-minute hang of a redirect test, and two failures in `links.test.ts` (a 404 on link creation and a rate-limit assertion). The link tests now report full diagnostics if it recurs; cause unknown. Seen once more in `qr.test.ts` (a 404 on link creation, an `ECONNRESET`) during a full run that overlapped with stopping local dev servers; passed on immediate rerun.
+- Intermittent test anomalies seen once each and **never reproduced** in many reruns: a pipeline test failure, a 10-minute hang of a redirect test, and two failures in `links.test.ts` (a 404 on link creation and a rate-limit assertion). The link tests now report full diagnostics if it recurs; cause unknown. Seen once more in `qr.test.ts` (a 404 on link creation, an `ECONNRESET`) during a full run that overlapped with stopping local dev servers; passed on immediate rerun. Once more in `webhooks.test.ts` (two tests) during a full run while the local dev worker was running against the same Valkey; 3 isolated reruns and a full rerun passed. A running dev stack sharing the test Redis/Postgres is the prime suspect; stop `npm run dev` before the full suite, and CI (phase 16) will use isolated services.
 - The 2,000 RPS burst requirement is not yet verified on production-like hardware (phase 17).
