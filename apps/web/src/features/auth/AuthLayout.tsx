@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
 
-/** Centered, minimal sign-in surface (Vercel-style): logo, a narrow card, quiet footer. */
+/** Centered, minimal sign-in surface: logo, a narrow card, quiet footer. */
 export function AuthLayout({
   title,
   description,
@@ -18,7 +18,7 @@ export function AuthLayout({
   return (
     <div className="flex min-h-full flex-col bg-surface">
       <header className="flex h-14 items-center justify-between px-6">
-        <Link to="/" aria-label="Go-Short home">
+        <Link to="/" aria-label="goShort home">
           <Logo />
         </Link>
         <ThemeToggle />

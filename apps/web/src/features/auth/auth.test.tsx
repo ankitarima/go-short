@@ -25,7 +25,7 @@ describe('route guards and sign in', () => {
   it('sends an unauthenticated visitor to the login screen, then back to where they were going', async () => {
     const s = stubSession();
     const { user, router } = renderApp('/links');
-    expect(await screen.findByRole('heading', { name: /log in to go-short/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /log in to goshort/i })).toBeInTheDocument();
     await user.type(screen.getByLabelText('Email'), 'ada@example.com');
     await user.type(screen.getByLabelText('Password'), 'correct-horse-battery');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
@@ -84,7 +84,7 @@ describe('route guards and sign in', () => {
     await screen.findByRole('heading', { name: /welcome back/i });
     expired = true;
     await user.click(screen.getByRole('link', { name: 'Links' }));
-    expect(await screen.findByRole('heading', { name: /log in to go-short/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /log in to goshort/i })).toBeInTheDocument();
   });
 });
 

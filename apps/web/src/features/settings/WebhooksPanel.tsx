@@ -286,7 +286,7 @@ function CreateWebhookDialog({
                 type="url"
                 required
                 autoFocus
-                placeholder="https://example.com/hooks/go-short"
+                placeholder="https://example.com/hooks/goshort"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
               />

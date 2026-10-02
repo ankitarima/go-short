@@ -78,6 +78,7 @@ export const routes = [
       { path: '/register', element: <RegisterPage /> },
     ],
   },
+  { path: '/', lazy: lazy(() => import('@/features/landing/LandingPage'), 'LandingPage') },
   { path: '/forgot-password', element: <ForgotPasswordPage /> },
   { path: '/reset-password', element: <ResetPasswordPage /> },
   { path: '/verify-email', element: <VerifyEmailPage /> },
@@ -85,7 +86,6 @@ export const routes = [
   {
     element: <RequireAuth />,
     children: [
-      { path: '/', element: <Navigate to="/dashboard" replace /> },
       {
         path: '/dashboard',
         lazy: lazy(() => import('@/features/dashboard/DashboardPage'), 'DashboardPage'),

@@ -36,7 +36,7 @@ export function LoginPage() {
 
   return (
     <AuthLayout
-      title="Log in to Go-Short"
+      title="Log in to goShort"
       footer={
         <>
           Don’t have an account?{' '}

@@ -31,7 +31,7 @@ export function AcceptInvitePage() {
 
   const next = `/accept-invite?token=${encodeURIComponent(token)}`;
   return (
-    <AuthLayout title="Join a workspace" description="You were invited to collaborate on Go-Short.">
+    <AuthLayout title="Join a workspace" description="You were invited to collaborate on goShort.">
       {!token ? (
         <Callout tone="danger" title="This invitation link is incomplete" />
       ) : me.isPending ? null : !me.data ? (
