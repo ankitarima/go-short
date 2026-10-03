@@ -471,10 +471,7 @@ describe('workspaces, teams and audit', () => {
     expect(within(dlg).getByText('u_2')).toBeInTheDocument();
     expect(within(dlg).getByText('Platform-level')).toBeInTheDocument();
     expect(within(dlg).getByText(/"role": "MANAGER"/)).toBeInTheDocument();
-    expect(
-      within(dlg).getByRole('button', { name: 'Copy code' }) ??
-        within(dlg).getByRole('button', { name: /copy/i }),
-    ).toBeInTheDocument();
+    expect(within(dlg).getByRole('button', { name: 'Copy JSON' })).toBeInTheDocument();
     await user.click(within(dlg).getByRole('button', { name: 'Close' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
