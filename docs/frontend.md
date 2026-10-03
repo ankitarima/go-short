@@ -59,3 +59,16 @@ The documentation site lives in the web app, is public (no sign-in), and has two
 - **API reference** is generated at runtime from `/openapi.json`, the same OpenAPI document the API enforces in its tests, so it cannot drift from the real API. It shows only the operations an API key can call (the flat `/api/v1/...` routes): parameters, request body fields with limits, responses, and ready-to-copy cURL, JavaScript and Python samples with example responses built from the schemas. Session-only and admin operations are not listed.
 - The Swagger UI that used to be at `/docs` moved to **`/api-docs`** on the API itself, for internal developers. The edge does not proxy it in production (reach it on the API container); in development the Vite proxy forwards it.
 - Tests (`src/features/docs/docs.test.tsx`) check every guide's front matter, internal links and code fences, that the reference lists exactly the key-callable operations, the samples, search, and the rendered pages.
+
+## Marketing site (`/`)
+
+The public site shares one header (a mega menu for **Products**, **Solutions** and **Resources**, plus Security, Docs, theme toggle and sign-in) and a full footer. It lives in `src/features/marketing/`:
+
+| Route                                                                    | Page                                                                                                     |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `/`                                                                      | Home: product tabs, the three products, why goShort, solutions, developers, trust                        |
+| `/products/golinks`, `/products/gocampaigns`, `/products/goanalytics`    | Dedicated product pages (hero, feature sections with illustrations, feature grid, FAQ, related products) |
+| `/solutions/marketing`, `/agencies`, `/developers`, `/events-and-retail` | Solution pages (challenges, three steps, products used)                                                  |
+| `/security`                                                              | Security and privacy, including what is **not** claimed                                                  |
+
+Content is data-driven: `data.ts` (products, solutions, resources used by the mega menu and footer) and `content.tsx` (page copy). To add a product or solution, add it to both and the menus, footer and routes pick it up. Illustrations in `mocks.tsx` are static and decorative; they show no customer data or invented metrics, and the pages label them "Illustrative interface". There are no customer logos, testimonials or pricing, because none exist. Each page sets its own title and description.

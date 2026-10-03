@@ -78,7 +78,22 @@ export const routes = [
       { path: '/register', element: <RegisterPage /> },
     ],
   },
-  { path: '/', lazy: lazy(() => import('@/features/landing/LandingPage'), 'LandingPage') },
+  // Public marketing site: home, product pages, solutions and security share one header and footer.
+  {
+    lazy: lazy(() => import('@/features/marketing/MarketingLayout'), 'MarketingLayout'),
+    children: [
+      { path: '/', lazy: lazy(() => import('@/features/marketing/pages'), 'HomePage') },
+      {
+        path: '/products/:slug',
+        lazy: lazy(() => import('@/features/marketing/pages'), 'ProductPage'),
+      },
+      {
+        path: '/solutions/:slug',
+        lazy: lazy(() => import('@/features/marketing/pages'), 'SolutionPage'),
+      },
+      { path: '/security', lazy: lazy(() => import('@/features/marketing/pages'), 'SecurityPage') },
+    ],
+  },
   // Public documentation: guides plus the API reference (no sign-in).
   {
     path: '/docs',
