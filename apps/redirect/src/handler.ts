@@ -70,6 +70,7 @@ export function createRedirectServer(deps: RedirectDeps): Server {
     domains,
     ttlSeconds: config.REDIRECT_CACHE_TTL_SECONDS,
     onCache: (result) => metrics.cache.inc({ result }),
+    onDbLookup: (s) => metrics.dbLookup.observe(s),
   });
   const sharedHost = config.DEFAULT_SHORT_DOMAIN.toLowerCase();
 

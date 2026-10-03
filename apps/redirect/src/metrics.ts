@@ -29,6 +29,7 @@ export interface RedirectMetrics {
   requests: Counter<'outcome'>;
   cache: Counter<'result'>;
   duration: Histogram;
+  dbLookup: Histogram;
   analytics: Counter<'event'>;
 }
 
@@ -63,6 +64,12 @@ export function createRedirectMetrics(
     duration: new Histogram({
       name: 'goshort_redirect_duration_seconds',
       help: 'Time to resolve and answer a short-link GET (excludes network time)',
+      buckets: LATENCY_BUCKETS,
+      ...r,
+    }),
+    dbLookup: new Histogram({
+      name: 'goshort_redirect_db_lookup_seconds',
+      help: 'Postgres lookup time on a cache miss, including waiting for a pooled connection',
       buckets: LATENCY_BUCKETS,
       ...r,
     }),

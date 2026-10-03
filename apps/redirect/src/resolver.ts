@@ -38,6 +38,8 @@ interface Options {
   domains: DomainRegistry;
   ttlSeconds: number;
   onCache?: (result: CacheResult) => void;
+  /** Seconds spent in the Postgres lookup (connection wait included), for cache misses. */
+  onDbLookup?: (seconds: number) => void;
 }
 
 /** Redis first, Postgres on miss or Redis failure. Never throws. */
@@ -83,10 +85,12 @@ export class LinkResolver {
 
   private async load(key: string, hostname: string, slug: string): Promise<Resolution> {
     try {
+      const started = process.hrtime.bigint();
       const link = await this.o.prisma.link.findFirst({
         where: { slug, domain: { hostname, status: 'VERIFIED' } },
         select: LINK_SELECT,
       });
+      this.o.onDbLookup?.(Number(process.hrtime.bigint() - started) / 1e9);
       if (!link) {
         // Negative-cache only for hostnames we know; random Host values must not create Redis keys.
         if (await this.o.domains.isKnown(hostname))

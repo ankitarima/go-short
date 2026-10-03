@@ -21,6 +21,8 @@ x-app: &app
 
 x-env: &env
   NODE_ENV: production
+  # Node tuning knob (e.g. --max-semi-space-size=64); empty = Node defaults. See docs/performance.md.
+  NODE_OPTIONS: ${NODE_OPTIONS:-}
   LOG_LEVEL: ${LOG_LEVEL:-info}
   DATABASE_URL: postgresql://${POSTGRES_USER:-goshort}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-goshort}
   REDIS_URL: redis://:${VALKEY_PASSWORD:?set VALKEY_PASSWORD}@valkey:6379
@@ -34,6 +36,7 @@ x-env: &env
   METRICS_TOKEN: ${METRICS_TOKEN:?set METRICS_TOKEN (openssl rand -hex 24)}
   REDIRECT_STATUS: ${REDIRECT_STATUS:-302}
   FEATURE_CUSTOM_DOMAINS: ${FEATURE_CUSTOM_DOMAINS:-true}
+  API_KEY_RATE_LIMIT_PER_MINUTE: ${API_KEY_RATE_LIMIT_PER_MINUTE:-600}
 
 services:
   postgres:
@@ -43,6 +46,19 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-goshort}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-goshort}
+    # Write-heavy analytics tuning, from the phase 17 load tests (see docs/performance.md): with the
+    # defaults (max_wal_size 1GB, no WAL compression) sustained ingestion triggered a checkpoint every
+    # minute, each followed by a burst of full-page WAL writes, and throughput fell by half as tables grew.
+    command:
+      - postgres
+      - -c
+      - max_wal_size=4GB
+      - -c
+      - checkpoint_timeout=15min
+      - -c
+      - wal_compression=lz4
+      - -c
+      - shared_buffers=256MB
     volumes: [pgdata:/var/lib/postgresql/data]
     networks: [internal]
     healthcheck:
@@ -56,11 +72,14 @@ services:
   valkey:
     image: valkey/valkey:8-alpine
     restart: unless-stopped
-    # noeviction: BullMQ keeps queue state here. AOF so queued analytics survive a restart.
+    # noeviction: BullMQ keeps queue state here. AOF so queued analytics survive a restart; RDB snapshots
+    # are off (`--save ''`) because they would fork and rewrite the whole dataset a second time.
     command:
       - valkey-server
       - --appendonly
       - 'yes'
+      - --save
+      - ''
       - --maxmemory-policy
       - noeviction
       - --requirepass

@@ -145,6 +145,26 @@ const hit = (server: Server, ua = CHROME, extra: Record<string, string> = {}) =>
 };
 
 describe('redirect -> BullMQ -> worker -> Postgres', () => {
+  it('does not keep finished jobs: raw IPs leave the queue as soon as the batch is stored', async () => {
+    await seedLink();
+    startWorker();
+    const { server } = startRedirect();
+    const IP = '198.51.100.77';
+    expect((await hit(server, CHROME, { 'X-Forwarded-For': IP })).status).toBe(302);
+    await waitFor(() => prisma.clickEvent.findFirst());
+
+    const r = conn();
+    await waitFor(async () => (await r.zcard('bull:analytics-events:completed')) === 0);
+    // No key anywhere in Valkey may still contain the client address (job data lives in hashes).
+    const leaks: string[] = [];
+    for (const key of await r.keys('bull:*')) {
+      if ((await r.type(key)) !== 'hash') continue;
+      const fields = Object.values(await r.hgetall(key));
+      if (fields.some((v) => v.includes(IP))) leaks.push(key);
+    }
+    expect(leaks).toEqual([]);
+  });
+
   it('a click becomes an enriched raw event and a daily rollup, end to end', async () => {
     const { ws, link, campaign } = await seedLink();
     startWorker();
@@ -226,19 +246,27 @@ describe('redirect -> BullMQ -> worker -> Postgres', () => {
 
   it('a redelivered job (same events, new job id) is not double counted', async () => {
     await seedLink();
-    const w = startWorker();
-    const { server, queue } = startRedirect();
+    // Enqueue first, with no worker yet, so the batch can be copied while it is still in the queue
+    // (finished jobs are deleted immediately).
+    const { server, queue, publisher } = startRedirect();
     for (let i = 0; i < 5; i++) await hit(server);
+    await publisher.flush();
+    const [waiting] = await waitFor(async () => {
+      const jobs = await queue.getWaiting();
+      return jobs.length ? jobs : false;
+    });
+    const batch = structuredClone(waiting!.data);
+
+    const w = startWorker();
     await waitFor(async () => (await prisma.clickEvent.count()) === 5);
-    await waitFor(async () => (await queue.getCompletedCount()) >= 1);
-    const [done] = await queue.getCompleted();
-    const batch = done!.data;
     await queue.add(
       'batch',
       { ...batch, batchId: 'replay' },
       { ...ANALYTICS_JOB_OPTIONS, jobId: 'replay' },
     );
-    await waitFor(async () => (await queue.getCompletedCount()) >= 2);
+    // The replay is processed and removed; a job that vanished without failing was handled.
+    await waitFor(async () => (await queue.getJob('replay')) === undefined);
+    expect(await queue.getFailedCount()).toBe(0);
     expect(await prisma.clickEvent.count()).toBe(5);
     expect((await prisma.analyticsDaily.findFirstOrThrow()).clicks).toBe(5);
     await w.close();
@@ -265,7 +293,8 @@ describe('redirect -> BullMQ -> worker -> Postgres', () => {
       { batchId: 'mixed', events: [null, { nope: 1 }, good] as never },
       { ...ANALYTICS_JOB_OPTIONS, jobId: 'mixed' },
     );
-    await waitFor(async () => (await queue.getCompletedCount()) === 1);
+    await waitFor(async () => (await prisma.clickEvent.count()) === 1);
+    await waitFor(async () => (await queue.getJob('mixed')) === undefined); // finished and removed
     expect(await queue.getFailedCount()).toBe(0);
     expect(await prisma.clickEvent.count()).toBe(1);
   });

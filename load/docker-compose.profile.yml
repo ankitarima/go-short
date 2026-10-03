@@ -1,0 +1,7 @@
+# CPU-profile the redirect process (written to load/results/prof when the container stops):
+#   docker compose --env-file .env.production -f docker-compose.prod.yml -f load/docker-compose.profile.yml up -d redirect
+#   ... run the load ..., then `stop redirect`, then `python3 load/cpuprofile.py load/results/prof/*.cpuprofile`
+services:
+  redirect:
+    command: ['node', '--cpu-prof', '--cpu-prof-dir=/prof', 'dist/server.js']
+    volumes: ['./load/results/prof:/prof']

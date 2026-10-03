@@ -33,12 +33,20 @@ export interface AnalyticsBatch {
   events: AnalyticsEvent[];
 }
 
-/** Default BullMQ options for analytics jobs: bounded retries, then kept for inspection (dead letter). */
+/**
+ * Default BullMQ options for analytics jobs: bounded retries, then kept for inspection (dead letter).
+ *
+ * A job's payload holds RAW client IPs, so a finished job must not linger: `removeOnComplete: true`
+ * deletes it the moment its batch is stored. (Measured in the phase 17 load tests: retaining the last
+ * 1,000 completed jobs held about 200 MB in Valkey, rewrote it into every persistence snapshot, and kept
+ * raw IPs for up to an hour.) Failed jobs are kept so they can be inspected and retried, but capped: a
+ * long database outage must not turn into unbounded queue memory.
+ */
 export const ANALYTICS_JOB_OPTIONS = {
   attempts: 5,
   backoff: { type: 'exponential' as const, delay: 2000 },
-  removeOnComplete: { age: 3600, count: 1000 },
-  removeOnFail: { age: 14 * 24 * 3600, count: 10_000 },
+  removeOnComplete: true,
+  removeOnFail: { age: 14 * 24 * 3600, count: 500 },
 };
 
 /** Scheduled/manual maintenance tasks run by the worker's `cleanup` queue. */

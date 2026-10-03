@@ -1,0 +1,14 @@
+# Overlay for profiling during load tests: turns on pg_stat_statements so the hungriest SQL is visible.
+#   docker compose --env-file .env.production -f docker-compose.prod.yml -f load/docker-compose.load.yml up -d postgres
+# Not for production use.
+services:
+  postgres:
+    ports: ['127.0.0.1:5433:5432'] # only for load/bench-lookup.ts from the host
+    # The production compose already carries the tuned settings; this adds pg_stat_statements on top.
+    # PG_EXTRA lets an experiment add or override settings, e.g. PG_EXTRA="-c max_wal_size=1GB".
+    command: >
+      postgres -c max_wal_size=4GB -c checkpoint_timeout=15min -c wal_compression=lz4 -c shared_buffers=256MB
+      -c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=all ${PG_EXTRA:-}
+  # Valkey reachable from the host for load/bench-ingest.ts (password = VALKEY_PASSWORD).
+  valkey:
+    ports: ['127.0.0.1:6380:6379']

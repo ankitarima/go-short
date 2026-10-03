@@ -15,3 +15,6 @@ backups
 playwright-report
 test-results
 packages/database/src/generated
+load/.loadtest.env
+load/results/*
+!load/results/.gitkeep
