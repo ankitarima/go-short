@@ -7,7 +7,7 @@ import {
   createBrowserRouter,
   useLocation,
 } from 'react-router-dom';
-import { AppShell } from '@/components/layout/AppShell';
+import { Layout } from '@/components/layout/Layout';
 import { Spinner } from '@/components/ui/skeleton';
 import { Toaster } from '@/components/ui/toaster';
 import { TooltipProvider } from '@/components/ui/tooltip';
@@ -53,7 +53,7 @@ function RequireAuth() {
   if (me.data.workspaces.length === 0) return <OnboardingPage />;
   return (
     <WorkspaceProvider me={me.data}>
-      <AppShell />
+      <Layout />
     </WorkspaceProvider>
   );
 }

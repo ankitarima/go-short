@@ -77,7 +77,7 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
             rel="noreferrer"
             className="text-xs text-subtle-foreground hover:text-foreground"
           >
-            API docs ↗
+            Docs ↗
           </a>
           <ThemeToggle />
         </div>
@@ -86,7 +86,7 @@ function SidebarBody({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AppShell() {
+export function Layout() {
   const mobileOpen = useUi((s) => s.mobileNavOpen);
   const setMobile = useUi((s) => s.setMobileNav);
   return (
