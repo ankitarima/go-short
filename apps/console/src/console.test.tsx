@@ -463,8 +463,20 @@ describe('workspaces, teams and audit', () => {
     const { user } = renderConsole('/audit');
     expect(await screen.findByText('staff added')).toBeInTheDocument();
     expect(within(screen.getByRole('main')).getByText('root@example.com')).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument(); // nothing expands in the row
     await user.click(screen.getByText('staff added'));
-    expect(await screen.findByText(/"role": "MANAGER"/)).toBeInTheDocument();
+    const dlg = await screen.findByRole('dialog');
+    expect(within(dlg).getByRole('heading', { name: 'staff added' })).toBeInTheDocument();
+    expect(within(dlg).getByText('Root User')).toBeInTheDocument();
+    expect(within(dlg).getByText('u_2')).toBeInTheDocument();
+    expect(within(dlg).getByText('Platform-level')).toBeInTheDocument();
+    expect(within(dlg).getByText(/"role": "MANAGER"/)).toBeInTheDocument();
+    expect(
+      within(dlg).getByRole('button', { name: 'Copy code' }) ??
+        within(dlg).getByRole('button', { name: /copy/i }),
+    ).toBeInTheDocument();
+    await user.click(within(dlg).getByRole('button', { name: 'Close' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 });
 

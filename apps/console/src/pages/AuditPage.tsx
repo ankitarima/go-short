@@ -1,6 +1,16 @@
 import { ScrollText } from 'lucide-react';
 import { useState } from 'react';
 import { Card } from '@go-short/ui/components/card';
+import { CopyButton } from '@go-short/ui/components/copy-button';
+import {
+  Dialog,
+  DialogBody,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@go-short/ui/components/dialog';
+import { Link } from 'react-router-dom';
 import { EmptyState, ErrorState, TableSkeleton } from '@go-short/ui/components/states';
 import { PageHeader } from '@go-short/ui/components/page-header';
 import { TBody, TD, TH, THead, TR, Table } from '@go-short/ui/components/table';
@@ -18,7 +28,7 @@ export function AuditPage() {
   const { rows, pager, query } = usePagedList<AuditEntry>('/admin/audit-logs', {
     q: dq || undefined,
   });
-  const [open, setOpen] = useState<string | null>(null);
+  const [selected, setSelected] = useState<AuditEntry | null>(null);
   return (
     <>
       <PageHeader
@@ -53,29 +63,21 @@ export function AuditPage() {
             </THead>
             <TBody>
               {rows.map((a) => (
-                <TR
-                  key={a.id}
-                  className="cursor-pointer"
-                  onClick={() => setOpen(open === a.id ? null : a.id)}
-                >
+                <TR key={a.id} className="cursor-pointer" onClick={() => setSelected(a)}>
                   <TD className="whitespace-nowrap text-muted-foreground">
                     {formatDateTime(a.createdAt)}
                   </TD>
                   <TD>
-                    <span className="font-medium capitalize">{label(a.action)}</span>
-                    {open === a.id && (
-                      <pre className="mono-13 mt-2 max-w-full overflow-x-auto rounded-md border border-border bg-surface p-3 text-xs">
-                        {JSON.stringify(
-                          {
-                            workspaceId: a.workspaceId,
-                            resourceId: a.resourceId,
-                            metadata: a.metadata ?? null,
-                          },
-                          null,
-                          2,
-                        )}
-                      </pre>
-                    )}
+                    <button
+                      className="text-left font-medium capitalize hover:underline"
+                      aria-label={`Details: ${label(a.action)}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelected(a);
+                      }}
+                    >
+                      {label(a.action)}
+                    </button>
                   </TD>
                   <TD>
                     {a.actor ? (
@@ -95,6 +97,97 @@ export function AuditPage() {
           <PagerFooter pager={pager} />
         </Card>
       )}
+      <AuditDetails entry={selected} onClose={() => setSelected(null)} />
     </>
+  );
+}
+
+function Item({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[12px] text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 break-words text-[14px]">{children}</dd>
+    </div>
+  );
+}
+
+/** One audit entry in full: who, what, when, which resource, and the recorded metadata. */
+function AuditDetails({ entry, onClose }: { entry: AuditEntry | null; onClose: () => void }) {
+  const details = entry
+    ? JSON.stringify(
+        {
+          workspaceId: entry.workspaceId,
+          resourceId: entry.resourceId,
+          metadata: entry.metadata ?? null,
+        },
+        null,
+        2,
+      )
+    : '';
+  return (
+    <Dialog open={Boolean(entry)} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-xl">
+        <DialogHeader>
+          <DialogTitle className="capitalize">
+            {entry ? label(entry.action) : 'Audit entry'}
+          </DialogTitle>
+          <DialogDescription>{entry ? formatDateTime(entry.createdAt) : ''}</DialogDescription>
+        </DialogHeader>
+        {entry && (
+          <DialogBody className="flex flex-col gap-5">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-4">
+              <Item label="Done by">
+                {entry.actor ? (
+                  <>
+                    {entry.actor.name}
+                    <span className="block text-[13px] text-muted-foreground">
+                      {entry.actor.email}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-muted-foreground">System</span>
+                )}
+              </Item>
+              <Item label="Resource">
+                {entry.resourceType}
+                {entry.resourceId && (
+                  <span className="mono-13 block text-[12px] text-muted-foreground">
+                    {entry.resourceId}
+                  </span>
+                )}
+              </Item>
+              <Item label="Workspace">
+                {entry.workspaceId ? (
+                  <Link
+                    to={`/workspaces/${entry.workspaceId}`}
+                    onClick={onClose}
+                    className="text-blue hover:underline"
+                  >
+                    Open workspace
+                  </Link>
+                ) : (
+                  <span className="text-muted-foreground">Platform-level</span>
+                )}
+              </Item>
+              <Item label="Entry id">
+                <span className="mono-13 text-[12px]">{entry.id}</span>
+              </Item>
+            </dl>
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <h4 className="label-14">Recorded details</h4>
+                <CopyButton value={details} label="Copy JSON" />
+              </div>
+              <pre className="mono-13 max-h-[40vh] overflow-auto rounded-lg border border-border bg-surface p-3 text-xs">
+                {details}
+              </pre>
+              <p className="copy-13 mt-2 text-muted-foreground">
+                Secrets are never recorded in the audit log.
+              </p>
+            </div>
+          </DialogBody>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
