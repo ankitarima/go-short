@@ -9,7 +9,7 @@ npm run dev:infra   # Postgres + Valkey (Docker)
 npm run dev         # api :4000, worker, redirect :4001 and web :5173 together
 ```
 
-Vite proxies `/api/*`, `/docs`, `/openapi.json`, `/health` and `/ready` to `VITE_API_PROXY` (default `http://localhost:4000`), so the browser talks to one origin and session cookies work without CORS.
+Vite proxies `/api/*`, `/api-docs`, `/openapi.json`, `/health` and `/ready` to `VITE_API_PROXY` (default `http://localhost:4000`), so the browser talks to one origin and session cookies work without CORS.
 
 > **Proxy rule must be `/api/` (with the slash), not `/api`.** The SPA has a client route `/api-keys`; a prefix match on `/api` sends it to the API and returns a 404. The same applies to any reverse proxy in production.
 
@@ -50,3 +50,12 @@ Vitest + jsdom + Testing Library + MSW (`onUnhandledRequest: 'error'`, so a scre
 ## Production headers
 
 The SPA must be served with the headers in `security-headers.ts` (strict CSP with `script-src 'self'`, `frame-ancestors 'none'`, `nosniff`, referrer and permissions policies). The theme bootstrap lives in `public/theme-init.js` rather than inline for that reason. Check the real build with `npm run build && npm run preview` (port 4173, same proxy rules, same headers).
+
+## Public documentation (`/docs`)
+
+The documentation site lives in the web app, is public (no sign-in), and has two areas selected from the header: **Guides** (how to use the platform) and **API reference**. Search (`Ctrl/⌘ K`), a table of contents, previous/next links, dark mode and a mobile layout are built in.
+
+- **Guides** are Markdown files in `src/features/docs/content/*.md`, bundled at build time. Front matter: `title`, `description`, `area` (`guides` or `api`), `section`, `order`, and an optional `slug`. Callouts use `> [!NOTE]`, `> [!TIP]` or `> [!WARNING]`. Add a page by adding a file; the sidebar, search and previous/next links pick it up.
+- **API reference** is generated at runtime from `/openapi.json`, the same OpenAPI document the API enforces in its tests, so it cannot drift from the real API. It shows only the operations an API key can call (the flat `/api/v1/...` routes): parameters, request body fields with limits, responses, and ready-to-copy cURL, JavaScript and Python samples with example responses built from the schemas. Session-only and admin operations are not listed.
+- The Swagger UI that used to be at `/docs` moved to **`/api-docs`** on the API itself, for internal developers. The edge does not proxy it in production (reach it on the API container); in development the Vite proxy forwards it.
+- Tests (`src/features/docs/docs.test.tsx`) check every guide's front matter, internal links and code fences, that the reference lists exactly the key-callable operations, the samples, search, and the rendered pages.

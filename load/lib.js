@@ -10,7 +10,8 @@ export function expectedStatus(i) {
 
 export const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
-export const env = (name, fallback) => (__ENV[name] !== undefined && __ENV[name] !== '' ? __ENV[name] : fallback);
+export const env = (name, fallback) =>
+  __ENV[name] !== undefined && __ENV[name] !== '' ? __ENV[name] : fallback;
 
 /** "90s" / "10m" / "1h" -> seconds. */
 export function seconds(duration) {
@@ -24,4 +25,5 @@ export function seconds(duration) {
  * at the very start while virtual users warm up; a real shortfall (the generator or the server could
  * not keep the arrival rate) is far above that and still fails the run.
  */
-export const droppedBudget = (rate, duration) => Math.max(1, Math.ceil(rate * seconds(duration) * 0.001));
+export const droppedBudget = (rate, duration) =>
+  Math.max(1, Math.ceil(rate * seconds(duration) * 0.001));

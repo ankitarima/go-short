@@ -213,9 +213,9 @@ describe('mass assignment and hostile input', () => {
 
   it('serves only whitelisted documentation assets (no path traversal, no package files)', async () => {
     for (const p of [
-      '/docs/assets/..%2f..%2fpackage.json',
-      '/docs/assets/package.json',
-      '/docs/assets/%2e%2e%2f%2e%2e%2f.env',
+      '/api-docs/assets/..%2f..%2fpackage.json',
+      '/api-docs/assets/package.json',
+      '/api-docs/assets/%2e%2e%2f%2e%2e%2f.env',
     ]) {
       const res = await request(app).get(p);
       expect(res.status).toBe(404);

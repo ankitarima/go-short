@@ -17,8 +17,10 @@
 {$APP_DOMAIN} {
 	encode zstd gzip
 
-	# `/api/` with the slash: the SPA has a client route `/api-keys`.
-	@api path /api/* /docs /docs/* /openapi.json
+	# `/api/` with the slash: the SPA has a client route `/api-keys`. `/openapi.json` feeds the public docs
+	# (/docs, rendered by the web app). The Swagger UI at `/api-docs` is for internal developers and is
+	# deliberately NOT proxied here; reach it on the API container (port 4000) from the private network.
+	@api path /api/* /openapi.json
 	handle @api {
 		reverse_proxy api:4000
 	}

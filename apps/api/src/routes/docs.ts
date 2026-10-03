@@ -8,16 +8,16 @@ const require = createRequire(import.meta.url);
 
 const PAGE = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>goShort API</title>
-<link rel="stylesheet" href="/docs/assets/swagger-ui.css">
+<title>goShort API (Swagger)</title>
+<link rel="stylesheet" href="/api-docs/assets/swagger-ui.css">
 </head><body><div id="swagger-ui"></div>
-<script src="/docs/assets/swagger-ui-bundle.js"></script>
-<script src="/docs/assets/init.js"></script></body></html>`;
+<script src="/api-docs/assets/swagger-ui-bundle.js"></script>
+<script src="/api-docs/assets/init.js"></script></body></html>`;
 
 // External script so the default CSP (script-src 'self') applies unchanged: no inline script, no CDN.
 const INIT = `window.ui = SwaggerUIBundle({ url: '/openapi.json', dom_id: '#swagger-ui', deepLinking: true, persistAuthorization: false, tryItOutEnabled: false });`;
 
-/** `/openapi.json` and `/docs` (Swagger UI served from the bundled swagger-ui-dist; no external requests). */
+/** `/openapi.json` and `/api-docs` (Swagger UI, for internal developers; the public documentation lives in the web app at `/docs`) served from the bundled swagger-ui-dist; no external requests). */
 export function docsRouter(ctx: AppContext): Router {
   const r = express.Router();
   const { document } = buildOpenApi(new URL(ctx.config.APP_URL).origin);
@@ -26,10 +26,10 @@ export function docsRouter(ctx: AppContext): Router {
   r.get('/openapi.json', (_req, res) => {
     res.type('application/json').set('Cache-Control', 'public, max-age=300').send(json);
   });
-  r.get('/docs', (_req, res) => {
+  r.get('/api-docs', (_req, res) => {
     res.type('html').set('Cache-Control', 'no-cache').send(PAGE);
   });
-  r.get('/docs/assets/init.js', (_req, res) => {
+  r.get('/api-docs/assets/init.js', (_req, res) => {
     res.type('application/javascript').send(INIT);
   });
   // Serve ONLY the files the page needs (not the whole package: no package.json, source maps, etc.).
@@ -39,7 +39,7 @@ export function docsRouter(ctx: AppContext): Router {
     'swagger-ui-bundle.js': 'application/javascript',
     'favicon-32x32.png': 'image/png',
   };
-  r.get('/docs/assets/:file', (req, res, next) => {
+  r.get('/api-docs/assets/:file', (req, res, next) => {
     const file = String(req.params.file);
     const type = ASSETS[file];
     if (!type) return next();

@@ -225,3 +225,61 @@
   background-size: 200% 100%;
   animation: shimmer 1.4s ease-in-out infinite;
 }
+
+/* ---- documentation: syntax highlighting (tokens follow the theme) ---- */
+.hljs {
+  color: var(--foreground);
+  background: transparent;
+}
+.hljs-comment,
+.hljs-quote {
+  color: var(--subtle-foreground);
+  font-style: italic;
+}
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal,
+.hljs-built_in {
+  color: #d6409f;
+}
+.hljs-string,
+.hljs-regexp,
+.hljs-addition {
+  color: var(--green);
+}
+.hljs-number,
+.hljs-attr,
+.hljs-attribute,
+.hljs-variable,
+.hljs-template-variable {
+  color: var(--blue);
+}
+.hljs-title,
+.hljs-section,
+.hljs-name,
+.hljs-function .hljs-title {
+  color: #8e4ec6;
+}
+.hljs-meta,
+.hljs-symbol,
+.hljs-bullet {
+  color: var(--amber);
+}
+.hljs-deletion {
+  color: var(--red);
+}
+.dark .hljs-keyword,
+.dark .hljs-selector-tag,
+.dark .hljs-literal,
+.dark .hljs-built_in {
+  color: #ff7eb6;
+}
+.dark .hljs-title,
+.dark .hljs-section,
+.dark .hljs-name,
+.dark .hljs-function .hljs-title {
+  color: #c4a1ff;
+}
+.docs-prose > :first-child {
+  margin-top: 0;
+}

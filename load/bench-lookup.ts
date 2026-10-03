@@ -26,9 +26,19 @@ const viaPrisma = () =>
   prisma.link.findFirst({
     where: { slug: slug(), domain: { hostname: HOST, status: 'VERIFIED' } },
     select: {
-      id: true, workspaceId: true, campaignId: true, destinationUrl: true, isActive: true, expiresAt: true,
-      passwordHash: true, redirectStatus: true, utmSource: true, utmMedium: true, utmCampaign: true,
-      utmTerm: true, utmContent: true,
+      id: true,
+      workspaceId: true,
+      campaignId: true,
+      destinationUrl: true,
+      isActive: true,
+      expiresAt: true,
+      passwordHash: true,
+      redirectStatus: true,
+      utmSource: true,
+      utmMedium: true,
+      utmCampaign: true,
+      utmTerm: true,
+      utmContent: true,
     },
   });
 const viaPg = () => pool.query(SQL, [slug(), HOST]);

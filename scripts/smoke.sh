@@ -32,11 +32,14 @@ check "X-Frame-Options" has "^x-frame-options: deny" "$hdr"
 code=$(c -o /dev/null -w '%{http_code}' "$BASE/api-keys"); check "client route /api-keys is the SPA, not the API (got $code)" is "$code" 200
 code=$(c -o /dev/null -w '%{http_code}' "$BASE/api/v1/me"); check "API is reachable and rejects anonymous /me (got $code)" is "$code" 401
 check "OpenAPI document served" has '"openapi"' "$(c "$BASE/openapi.json")"
+check "public docs site is served" has 'id="root"' "$(c "$BASE/docs/introduction")"
 check "API responses are no-store" has "^cache-control:.*no-store" "$(c -D- -o /dev/null "$BASE/api/v1/me")"
 
 for p in /metrics /internal/tls-check /ready; do
   check "$p is not exposed through the edge" lacks 'goshort_|"checks"|process_cpu' "$(c "$BASE$p")"
 done
+
+check "internal Swagger UI (/api-docs) is not exposed" lacks 'swagger-ui' "$(c "$BASE/api-docs")"
 
 if [ -n "$SHORT" ]; then
   echo "Short link: $SHORT"

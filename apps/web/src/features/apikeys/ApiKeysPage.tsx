@@ -157,7 +157,12 @@ export function ApiKeysPage() {
         <Callout tone="info" title="Using a key">
           Send it as <code className="mono-13">Authorization: Bearer &lt;key&gt;</code> to the flat
           routes such as <code className="mono-13">/api/v1/links</code>. See the{' '}
-          <a href="/docs" target="_blank" rel="noreferrer" className="text-blue hover:underline">
+          <a
+            href="/docs/api/authentication"
+            target="_blank"
+            rel="noreferrer"
+            className="text-blue hover:underline"
+          >
             API reference
           </a>
           . Keys cannot manage members, domains, webhooks or other keys.

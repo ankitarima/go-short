@@ -10,7 +10,7 @@ const api = process.env.VITE_API_PROXY ?? 'http://localhost:4000';
 const proxy = {
   // `^/api/` (with the slash): a bare '/api' prefix would also swallow the SPA route '/api-keys'.
   '^/api/': api,
-  '/docs': api,
+  '/api-docs': api,
   '/openapi.json': api,
   '/health': api,
   '/ready': api,

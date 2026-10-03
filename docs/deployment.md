@@ -13,7 +13,7 @@ Everything is free and open source. Nothing here needs a paid service.
 
 ```
 internet ──► Caddy ─┬─► web app (static files)        APP_DOMAIN
-                    ├─► api  :4000   /api, /docs, /openapi.json   (APP_DOMAIN only)
+                    ├─► api  :4000   /api, /openapi.json   (APP_DOMAIN only)
                     └─► redirect :4001   every other hostname (short links)
                          │         worker (analytics, webhooks, cleanup)
                          └── Valkey ◄──┘      Postgres
@@ -94,7 +94,7 @@ docker compose --env-file .env.production -f docker-compose.prod.yml up -d --bui
 
 `docker/caddy/Caddyfile`:
 
-- `APP_DOMAIN` serves the SPA (security headers from `apps/web/security-headers.ts`, immutable caching for hashed assets, `no-cache` for the HTML shell) and proxies exactly `/api/*`, `/docs*` and `/openapi.json` to the API. The slash in `/api/*` matters: the SPA has a client route `/api-keys`. `/metrics`, `/internal/*` and `/ready` are **not** proxied.
+- `APP_DOMAIN` serves the SPA (security headers from `apps/web/security-headers.ts`, immutable caching for hashed assets, `no-cache` for the HTML shell) and proxies exactly `/api/*` and `/openapi.json` to the API (the public docs at `/docs` are part of the SPA). The slash in `/api/*` matters: the SPA has a client route `/api-keys`. `/metrics`, `/internal/*`, `/ready` and the internal Swagger UI (`/api-docs`) are **not** proxied.
 - Every other hostname goes to the redirect service, with an on-demand certificate. Caddy asks `GET /internal/tls-check?domain=…` on the API first; only the shared domain and **verified** custom domains get a 200, so random `Host` headers cannot make Caddy request certificates or burn Let's Encrypt rate limits.
 - Plain HTTP for short domains is redirected to HTTPS.
 

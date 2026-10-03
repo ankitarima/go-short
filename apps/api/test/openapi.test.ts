@@ -197,9 +197,9 @@ describe('route drift guard', () => {
   const INTERNAL = new Set([
     'get /internal/tls-check',
     'get /openapi.json',
-    'get /docs',
-    'get /docs/assets/init.js',
-    'get /docs/assets/:file',
+    'get /api-docs',
+    'get /api-docs/assets/init.js',
+    'get /api-docs/assets/:file',
   ]);
   const key = (m: string, p: string) => `${m} ${p}`;
 
@@ -573,7 +573,7 @@ describe('responses conform to the documented schemas', () => {
 // ---------------------------------------------------------------------------------------------
 // 4. Serving the document and the UI
 // ---------------------------------------------------------------------------------------------
-describe('/openapi.json and /docs', () => {
+describe('/openapi.json and /api-docs', () => {
   const app = createApp(ctx);
 
   it('serves the same document that was validated', async () => {
@@ -586,29 +586,29 @@ describe('/openapi.json and /docs', () => {
   });
 
   it('serves Swagger UI from bundled assets with no external hosts and a strict CSP', async () => {
-    const page = await request(app).get('/docs').expect(200);
+    const page = await request(app).get('/api-docs').expect(200);
     expect(page.headers['content-type']).toMatch(/text\/html/);
-    expect(page.text).toContain('/docs/assets/swagger-ui-bundle.js');
+    expect(page.text).toContain('/api-docs/assets/swagger-ui-bundle.js');
     expect(page.text).not.toMatch(/https?:\/\/(?!localhost)/); // no CDN / external references
     expect(page.text).not.toMatch(/<script>[^<]/); // no inline script
     const csp = String(page.headers['content-security-policy']);
     expect(csp).toContain("script-src 'self'");
     expect(csp).not.toMatch(/script-src[^;]*unsafe-inline/);
-    const js = await request(app).get('/docs/assets/swagger-ui-bundle.js').expect(200);
+    const js = await request(app).get('/api-docs/assets/swagger-ui-bundle.js').expect(200);
     expect(js.headers['content-type']).toMatch(/javascript/);
     expect(js.text.length).toBeGreaterThan(100_000);
-    await request(app).get('/docs/assets/swagger-ui.css').expect(200);
-    const init = await request(app).get('/docs/assets/init.js').expect(200);
+    await request(app).get('/api-docs/assets/swagger-ui.css').expect(200);
+    const init = await request(app).get('/api-docs/assets/init.js').expect(200);
     expect(init.text).toContain("url: '/openapi.json'");
   });
 
   it('serves only whitelisted asset files (no package metadata, source maps or traversal)', async () => {
     for (const p of [
-      '/docs/assets/package.json',
-      '/docs/assets/swagger-ui-bundle.js.map',
-      '/docs/assets/absolute-path.js',
-      '/docs/assets/..%2f..%2fpackage.json',
-      '/docs/assets/%2e%2e/%2e%2e/etc/passwd',
+      '/api-docs/assets/package.json',
+      '/api-docs/assets/swagger-ui-bundle.js.map',
+      '/api-docs/assets/absolute-path.js',
+      '/api-docs/assets/..%2f..%2fpackage.json',
+      '/api-docs/assets/%2e%2e/%2e%2e/etc/passwd',
     ]) {
       const r = await request(app).get(p);
       expect([404, 400], p).toContain(r.status);

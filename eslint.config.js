@@ -9,6 +9,7 @@ export default tseslint.config(
       '**/generated/**',
       '**/node_modules/**',
       'apps/web/playwright-report/**',
+      'load/**/*.js' /* k6 scripts run in k6's own runtime, not Node */,
     ],
   },
   js.configs.recommended,

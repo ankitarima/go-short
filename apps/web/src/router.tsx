@@ -79,6 +79,24 @@ export const routes = [
     ],
   },
   { path: '/', lazy: lazy(() => import('@/features/landing/LandingPage'), 'LandingPage') },
+  // Public documentation: guides plus the API reference (no sign-in).
+  {
+    path: '/docs',
+    lazy: lazy(() => import('@/features/docs/DocsLayout'), 'DocsLayout'),
+    children: [
+      { index: true, element: <Navigate to="/docs/introduction" replace /> },
+      { path: 'api', lazy: lazy(() => import('@/features/docs/ApiPages'), 'ApiIntroPage') },
+      {
+        path: 'api/:segment',
+        lazy: lazy(() => import('@/features/docs/ApiPages'), 'ApiSegmentPage'),
+      },
+      {
+        path: 'api/:tag/:op',
+        lazy: lazy(() => import('@/features/docs/ApiPages'), 'ApiOperationPage'),
+      },
+      { path: ':slug', lazy: lazy(() => import('@/features/docs/GuidePage'), 'GuidePage') },
+    ],
+  },
   { path: '/forgot-password', element: <ForgotPasswordPage /> },
   { path: '/reset-password', element: <ResetPasswordPage /> },
   { path: '/verify-email', element: <VerifyEmailPage /> },

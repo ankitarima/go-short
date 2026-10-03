@@ -123,7 +123,8 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-15 are
 | Requirement                                                              | Status | Notes                                                                                                              |
 | ------------------------------------------------------------------------ | ------ | ------------------------------------------------------------------------------------------------------------------ |
 | Versioned `/api/v1`, cursor pagination (max 100), standard errors        | ✅     | nested `/workspaces/:id/...` plus flat routes for API keys                                                         |
-| OpenAPI 3.1 at `/openapi.json`, Swagger UI at `/docs`                    | ✅     | bundled UI, no CDN                                                                                                 |
+| OpenAPI 3.1 at `/openapi.json`, Swagger UI at `/api-docs` (internal)     | ✅     | bundled UI, no CDN; not proxied publicly                                                                           |
+| Public documentation site (`/docs`): guides + generated API reference    | ✅     | [frontend.md](frontend.md); search, dark mode, code samples; tests check content and links                         |
 | Webhooks (HMAC signatures, retries, encrypted secrets)                   | ✅     | `analytics.threshold` is reserved, not implemented                                                                 |
 | Feature flags (custom domains, campaigns, QR logos, password links, API) | ✅     | all five are enforced and tested                                                                                   |
 | Email provider adapter beyond console logging (e.g. SMTP)                | ⬜     | the `EmailProvider` interface exists; in production reset/invite links are not delivered until an adapter is added |

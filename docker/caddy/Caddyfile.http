@@ -23,9 +23,10 @@
 	}
 
 	# The API is only served on the app's own hostname, never on short-link or customer domains.
+	# (The internal Swagger UI at /api-docs is not proxied: see docker/caddy/Caddyfile.)
 	@api {
 		host {$APP_DOMAIN}
-		path /api/* /docs /docs/* /openapi.json
+		path /api/* /openapi.json
 	}
 	handle @api {
 		reverse_proxy api:4000

@@ -1,6 +1,6 @@
 # API
 
-The interactive reference is served by the API itself: **`/docs`** (Swagger UI, bundled, no CDN) and the machine-readable **`/openapi.json`** (OpenAPI 3.1). In production route both through your reverse proxy to the API service. This page is the short guide; the reference lists every operation, schema, permission, status code and limit.
+There are two references. The **public documentation** is the web app's `/docs` (guides and an API reference rendered from the OpenAPI document; see [frontend.md](frontend.md)). The machine-readable **`/openapi.json`** (OpenAPI 3.1) is served by the API and proxied by the edge. The **Swagger UI** at **`/api-docs`** (bundled, no CDN) is for internal developers: it is served by the API on its own port and is not proxied publicly in production. This page is the short guide; the references list every operation, schema, permission, status code and limit.
 
 ## How the document stays accurate
 

@@ -94,9 +94,9 @@ export function LandingPage() {
             <a href="#open" className="copy-14 text-muted-foreground hover:text-foreground">
               Open source
             </a>
-            <a href="/docs" className="copy-14 text-muted-foreground hover:text-foreground">
-              API docs
-            </a>
+            <Link to="/docs" className="copy-14 text-muted-foreground hover:text-foreground">
+              Docs
+            </Link>
           </nav>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -222,9 +222,12 @@ export function LandingPage() {
             <span className="copy-13 text-muted-foreground">goShort · MIT licensed</span>
           </div>
           <nav aria-label="Footer" className="flex gap-5">
-            <a href="/docs" className="copy-13 text-muted-foreground hover:text-foreground">
+            <Link to="/docs" className="copy-13 text-muted-foreground hover:text-foreground">
+              Docs
+            </Link>
+            <Link to="/docs/api" className="copy-13 text-muted-foreground hover:text-foreground">
               API reference
-            </a>
+            </Link>
             <Link to="/login" className="copy-13 text-muted-foreground hover:text-foreground">
               Log in
             </Link>
@@ -287,7 +290,7 @@ function Hero({ signedIn }: { signedIn: boolean }) {
             </Link>
           </Button>
           <Button asChild variant="secondary" className="h-11 px-6">
-            <a href="/docs">Read the API docs</a>
+            <Link to="/docs">Read the docs</Link>
           </Button>
         </div>
         <ProductPreview />

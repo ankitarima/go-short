@@ -56,7 +56,13 @@ const AGENTS = [
   'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 Chrome/124.0 Mobile Safari/537.36',
   'Mozilla/5.0 (X11; Linux x86_64; rv:125.0) Gecko/20100101 Firefox/125.0',
 ];
-const REFERERS = ['', '', 'https://www.google.com/', 'https://t.co/abc', 'https://www.instagram.com/'];
+const REFERERS = [
+  '',
+  '',
+  'https://www.google.com/',
+  'https://t.co/abc',
+  'https://www.instagram.com/',
+];
 
 export default function () {
   const r = Math.random();
