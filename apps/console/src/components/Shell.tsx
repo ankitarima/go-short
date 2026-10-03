@@ -109,7 +109,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 export function Shell() {
-  const { me, session } = useConsole();
+  const { me } = useConsole();
   const qc = useQueryClient();
   const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
@@ -119,11 +119,14 @@ export function Shell() {
 
   async function signOut() {
     try {
-      await api('/auth/logout', { method: 'POST' });
+      await api('/admin/auth/logout', { method: 'POST' });
     } finally {
       setCsrfToken(null);
-      await qc.resetQueries({ queryKey: SESSION_KEY });
-      qc.removeQueries({ predicate: (q) => q.queryKey[0] === 'console' });
+      // Forget everything the previous staff member could see, then show the sign-in again.
+      qc.removeQueries({
+        predicate: (q) => q.queryKey[0] === 'console' && q.queryKey[1] !== 'session',
+      });
+      qc.setQueryData(SESSION_KEY, null);
     }
   }
 
@@ -165,9 +168,9 @@ export function Shell() {
               {dark ? <Sun /> : <Moon />}
             </Button>
             <div className="hidden items-center gap-2 sm:flex">
-              <Avatar name={session.user.email} size={24} />
+              <Avatar name={me.user.email} size={24} />
               <span className="max-w-[180px] truncate text-[13px] text-muted-foreground">
-                {session.user.email}
+                {me.user.email}
               </span>
             </div>
             <Button variant="secondary" size="sm" onClick={() => void signOut()}>

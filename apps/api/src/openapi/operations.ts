@@ -783,6 +783,25 @@ export const operations: Op[] = [
     response: { type: 'array', items: ref('AdminUser') },
   },
   {
+    method: 'post',
+    path: '/admin/auth/login',
+    scope: 'public',
+    tag: 'Admin',
+    summary: 'Sign in to the console (staff only)',
+    description:
+      'Separate from the app sign-in: sets the `gs_console` cookie (8 hours, sent only to `/api/v1/admin`), which the app never accepts, and the app cookie never opens the console. Needs a platform role.',
+    body: v.loginSchema,
+    response: ref('ConsoleSession'),
+  },
+  {
+    method: 'post',
+    path: '/admin/auth/logout',
+    scope: 'admin',
+    tag: 'Admin',
+    summary: 'Sign out of the console',
+    response: OK,
+  },
+  {
     method: 'get',
     path: '/admin/me',
     scope: 'admin',

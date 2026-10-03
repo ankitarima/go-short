@@ -10,7 +10,7 @@ import type { Request, RequestHandler } from 'express';
 import type { AppContext } from '../context';
 import { safeEqual, sha256 } from '../lib/crypto';
 import { API_KEY_PATTERN } from '../services/apiKeys';
-import { SESSION_COOKIE } from '../services/sessions';
+import { CONSOLE_COOKIE, SESSION_COOKIE } from '../services/sessions';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
@@ -91,7 +91,12 @@ export const loadSession =
       include: { user: true },
     });
     // A suspended account has no working session, even if one somehow survived suspension.
-    if (session && session.expiresAt > new Date() && !session.user.disabledAt) {
+    if (
+      session &&
+      session.scope === 'APP' &&
+      session.expiresAt > new Date() &&
+      !session.user.disabledAt
+    ) {
       req.auth = {
         method: 'session',
         session: { id: session.id, csrfToken: session.csrfToken },
@@ -104,6 +109,44 @@ export const loadSession =
         },
       };
       req.log = req.log.child({ userId: session.user.id });
+    }
+    next();
+  };
+
+/**
+ * Console identity. Ignores whatever the app resolved (app cookie, API key) and reads ONLY the console
+ * cookie, which must belong to a live CONSOLE session of an enabled account that still has a platform role.
+ */
+export const loadConsoleSession =
+  (ctx: AppContext): RequestHandler =>
+  async (req, _res, next) => {
+    delete req.auth;
+    delete req.apiKey;
+    const token: unknown = req.cookies?.[CONSOLE_COOKIE];
+    if (typeof token !== 'string' || token.length < 20 || token.length > 200) return next();
+    const session = await ctx.prisma.session.findUnique({
+      where: { tokenHash: sha256(token) },
+      include: { user: true },
+    });
+    if (
+      session &&
+      session.scope === 'CONSOLE' &&
+      session.expiresAt > new Date() &&
+      !session.user.disabledAt &&
+      session.user.systemRole !== 'USER'
+    ) {
+      req.auth = {
+        method: 'session',
+        session: { id: session.id, csrfToken: session.csrfToken },
+        user: {
+          id: session.user.id,
+          email: session.user.email,
+          name: session.user.name,
+          emailVerified: session.user.emailVerified,
+          systemRole: session.user.systemRole,
+        },
+      };
+      req.log = req.log.child({ userId: session.user.id, console: true });
     }
     next();
   };

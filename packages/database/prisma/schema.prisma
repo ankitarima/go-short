@@ -81,9 +81,17 @@ model User {
   auditLogs   AuditLog[]
 }
 
+/// Which product a sign-in belongs to. A console session is separate from an app session on purpose:
+/// signing in to one never signs you in to the other.
+enum SessionScope {
+  APP
+  CONSOLE
+}
+
 model Session {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
+  scope     SessionScope @default(APP)
   tokenHash String   @unique
   csrfToken String
   expiresAt DateTime

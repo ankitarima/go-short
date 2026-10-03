@@ -106,7 +106,7 @@ export function UsersPage() {
 }
 
 function UserDialog({ id, onClose }: { id: string | null; onClose: () => void }) {
-  const { can, session } = useConsole();
+  const { can, me } = useConsole();
   const qc = useQueryClient();
   const [confirm, setConfirm] = useState(false);
   const q = useQuery({
@@ -128,7 +128,7 @@ function UserDialog({ id, onClose }: { id: string | null; onClose: () => void })
     },
   });
   const u = q.data;
-  const self = u?.id === session.user.id;
+  const self = u?.id === me.user.id;
   return (
     <>
       <Dialog open={Boolean(id)} onOpenChange={(o) => !o && onClose()}>

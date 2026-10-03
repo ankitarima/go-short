@@ -528,9 +528,10 @@ describe('responses conform to the documented schemas', () => {
       data: { systemRole: 'SUPER_ADMIN' },
     });
     const admin = request.agent(app);
-    await admin
-      .post('/api/v1/auth/login')
+    const consoleLoginRes = await admin
+      .post('/api/v1/admin/auth/login')
       .send({ email: 'doc@example.com', password: 'correct-horse-battery' });
+    conforms('post', '/api/v1/admin/auth/login', 200, consoleLoginRes.body);
     for (const [p, tmpl] of [
       ['/stats', '/api/v1/admin/stats'],
       ['/users', '/api/v1/admin/users'],
@@ -548,7 +549,7 @@ describe('responses conform to the documented schemas', () => {
     ] as const) {
       conforms('get', tmpl, 200, (await admin.get(`/api/v1/admin${p}`)).body);
     }
-    const adminCsrf = (await admin.get('/api/v1/me')).body.data.csrfToken as string;
+    const adminCsrf = consoleLoginRes.body.data.csrfToken as string;
     const aUser = await ctx.prisma.user.findFirstOrThrow({ where: { email: 'doc@example.com' } });
     const aWs = await ctx.prisma.workspace.findFirstOrThrow();
     conforms(
@@ -601,6 +602,12 @@ describe('responses conform to the documented schemas', () => {
       '/api/v1/admin/staff/{userId}',
       200,
       (await admin.delete(`/api/v1/admin/staff/${other.id}`).set('X-CSRF-Token', adminCsrf)).body,
+    );
+    conforms(
+      'post',
+      '/api/v1/admin/auth/logout',
+      200,
+      (await admin.post('/api/v1/admin/auth/logout').set('X-CSRF-Token', adminCsrf)).body,
     );
 
     // deletes and error envelopes

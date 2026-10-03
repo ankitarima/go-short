@@ -1,6 +1,18 @@
 # Console
 
-The console is the platform staff area: one place to see and manage the whole installation. It is a separate app (`apps/console`) that shares the design system (`packages/ui`) and API client (`packages/api-client`) with the web app, and is served at **`https://APP_DOMAIN/console`** on the same origin, so staff sign in with their normal goShort account and session. It is never indexed (`noindex` meta and `X-Robots-Tag`).
+The console is the platform staff area: one place to see and manage the whole installation. It is a separate app (`apps/console`) that shares the design system (`packages/ui`) and API client (`packages/api-client`) with the web app, and is served at **`https://APP_DOMAIN/console`** on the same origin. It has **its own sign-in, separate from the app's** (see below). It is never indexed (`noindex` meta and `X-Robots-Tag`).
+
+## Separate sign-in
+
+The console and the app do not share a login session, even though staff use the same account (email and password):
+
+- The console has its own sign-in endpoint (`POST /api/v1/admin/auth/login`), **staff accounts only**. It sets a `gs_console` cookie that is `HttpOnly`, `SameSite=Strict`, sent only to `/api/v1/admin`, and lasts **8 hours**. The app's `gs_session` cookie lasts 30 days.
+- Signing in to the console does **not** sign you in to the app (the app asks you to sign in as usual), and an app session does **not** open the console. The app never accepts the console cookie, and the console never reads the app cookie or API keys.
+- Signing out of one leaves the other untouched.
+- Removing someone's platform role, or suspending the account, ends their console session immediately.
+- The console sign-in has its own rate limits (per IP and per account). A customer account is told it has no console access only after the correct password, so it cannot be used to find out which emails exist.
+
+Why: a console session is far more powerful than an app session, so it gets a shorter life, a stricter cookie and no way to be reached by anything the app does.
 
 ## Roles
 

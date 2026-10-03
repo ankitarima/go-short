@@ -11,18 +11,6 @@ export const apiError = (status: number, code: string, message: string) =>
     { status },
   );
 
-export const session = (role: 'USER' | StaffRole = 'ADMIN') => ({
-  user: {
-    id: 'u_me',
-    email: 'root@example.com',
-    name: 'Root User',
-    emailVerified: true,
-    systemRole: role,
-  },
-  csrfToken: 'csrf-123',
-  workspaces: [],
-});
-
 export const consoleMe = (role: StaffRole = 'ADMIN', over: Partial<ConsoleMe> = {}): ConsoleMe => ({
   user: { id: 'u_me', email: 'root@example.com', name: 'Root User' },
   role,
@@ -34,6 +22,7 @@ export const consoleMe = (role: StaffRole = 'ADMIN', over: Partial<ConsoleMe> = 
         : ['console:read', 'users:manage', 'queues:manage', 'cleanup:run', 'staff:manage'],
   links: { grafana: null, prometheus: null },
   metricsConfigured: false,
+  csrfToken: 'csrf-123',
   ...over,
 });
 
@@ -96,7 +85,6 @@ export const mkStaff = (over: object = {}) => ({
 
 /** A signed-in ADMIN by default; tests override with server.use(...). */
 export const server = setupServer(
-  http.get('/api/v1/me', () => ok(session())),
   http.get('/api/v1/admin/me', () => ok(consoleMe())),
   http.get('/api/v1/admin/stats', () => ok(stats)),
   http.get('/api/v1/admin/usage', () => ok(usage)),

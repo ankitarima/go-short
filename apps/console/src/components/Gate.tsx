@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { Lock, ShieldAlert } from 'lucide-react';
+import { Lock } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 
 import { Button } from '@go-short/ui/components/button';
@@ -7,12 +7,11 @@ import { Callout } from '@go-short/ui/components/callout';
 import { Field } from '@go-short/ui/components/field';
 import { Input } from '@go-short/ui/components/input';
 import { ErrorState } from '@go-short/ui/components/states';
-import { ApiError, api, setCsrfToken } from '@/lib/api';
+import { ApiError, api } from '@/lib/api';
 import {
   ConsoleProvider,
   SESSION_KEY,
-  useConsoleMe,
-  useSession,
+  useConsoleSession,
   useSessionWatcher,
 } from '@/hooks/useConsole';
 import { Shell } from './Shell';
@@ -65,12 +64,8 @@ function SignIn() {
     setBusy(true);
     setError(null);
     try {
-      const r = await api<{ csrfToken: string }>('/auth/login', {
-        method: 'POST',
-        body: { email, password },
-        public: true,
-      });
-      setCsrfToken(r.csrfToken);
+      // The console has its own sign-in (and cookie); it never uses the app's /auth endpoints.
+      await api('/admin/auth/login', { method: 'POST', body: { email, password }, public: true });
       await qc.invalidateQueries({ queryKey: SESSION_KEY });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Could not sign in');
@@ -82,7 +77,7 @@ function SignIn() {
     <Frame>
       <h1 className="heading-24 text-center">Platform staff sign-in</h1>
       <p className="copy-14 mt-2 text-center text-muted-foreground">
-        Use your goShort account. Access is limited to platform staff.
+        Platform staff only. This sign-in is separate from the app, and sessions last 8 hours.
       </p>
       <form onSubmit={submit} className="mt-7 flex flex-col gap-5">
         {error && <Callout tone="danger">{error}</Callout>}
@@ -115,42 +110,10 @@ function SignIn() {
   );
 }
 
-function NoAccess({ email }: { email: string }) {
-  const qc = useQueryClient();
-  async function signOut() {
-    await api('/auth/logout', { method: 'POST' }).catch(() => undefined);
-    setCsrfToken(null);
-    await qc.resetQueries({ queryKey: SESSION_KEY });
-  }
-  return (
-    <Frame>
-      <div className="flex flex-col items-center text-center">
-        <span className="grid size-11 place-items-center rounded-full border border-border bg-surface">
-          <ShieldAlert className="size-5 text-amber" aria-hidden />
-        </span>
-        <h1 className="heading-20 mt-4">No console access</h1>
-        <p className="copy-14 mt-2 text-muted-foreground">
-          <span className="font-medium text-foreground">{email}</span> is not platform staff. Ask a
-          super admin to add you under Platform staff.
-        </p>
-        <div className="mt-6 flex gap-2">
-          <Button asChild variant="secondary">
-            <a href="/dashboard">Back to the app</a>
-          </Button>
-          <Button variant="ghost" onClick={() => void signOut()}>
-            Sign out
-          </Button>
-        </div>
-      </div>
-    </Frame>
-  );
-}
-
 /** Sign-in, then the staff check, then the console. Everything else is decided by the API. */
 export function Gate() {
   useSessionWatcher();
-  const session = useSession();
-  const staff = useConsoleMe(Boolean(session.data));
+  const session = useConsoleSession();
   if (session.isPending) return <Splash />;
   if (session.isError)
     return (
@@ -159,17 +122,8 @@ export function Gate() {
       </div>
     );
   if (!session.data) return <SignIn />;
-  if (staff.isPending) return <Splash />;
-  if (staff.error instanceof ApiError && staff.error.status === 403)
-    return <NoAccess email={session.data.user.email} />;
-  if (staff.isError)
-    return (
-      <div className="p-8">
-        <ErrorState error={staff.error} onRetry={() => void staff.refetch()} />
-      </div>
-    );
   return (
-    <ConsoleProvider value={{ me: staff.data, session: session.data }}>
+    <ConsoleProvider me={session.data}>
       <Shell />
     </ConsoleProvider>
   );

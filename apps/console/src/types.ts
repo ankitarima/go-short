@@ -1,23 +1,13 @@
 export type StaffRole = 'MANAGER' | 'ADMIN' | 'SUPER_ADMIN';
 export type WorkspaceRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
 
-export interface SessionUser {
-  id: string;
-  email: string;
-  name: string;
-  systemRole: 'USER' | StaffRole;
-}
-export interface Session {
-  user: SessionUser;
-  csrfToken: string;
-}
-
 export interface ConsoleMe {
   user: { id: string; email: string; name: string };
   role: StaffRole;
   capabilities: string[];
   links: { grafana: string | null; prometheus: string | null };
   metricsConfigured: boolean;
+  csrfToken: string;
 }
 
 export interface Stats {

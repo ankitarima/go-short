@@ -31,7 +31,7 @@ import { useConsole } from '@/hooks/useConsole';
 const ROLES: StaffRole[] = ['MANAGER', 'ADMIN', 'SUPER_ADMIN'];
 
 export function StaffPage() {
-  const { can, session } = useConsole();
+  const { can, me } = useConsole();
   const canManage = can('staff:manage');
   const qc = useQueryClient();
   const q = useQuery({
@@ -117,7 +117,7 @@ export function StaffPage() {
             </THead>
             <TBody>
               {staffPage.rows.map((m) => {
-                const self = m.id === session.user.id;
+                const self = m.id === me.user.id;
                 return (
                   <TR key={m.id}>
                     <TD>

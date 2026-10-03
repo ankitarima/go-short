@@ -56,6 +56,7 @@ export function registerPlatformRoutes(r: Router, ctx: AppContext): void {
           prometheus: ctx.config.CONSOLE_PROMETHEUS_URL ?? null,
         },
         metricsConfigured: Boolean(ctx.config.PROMETHEUS_URL),
+        csrfToken: req.auth!.session!.csrfToken,
       },
     });
   });
@@ -405,7 +406,11 @@ export function registerPlatformRoutes(r: Router, ctx: AppContext): void {
     if (!target || target.systemRole === 'USER')
       throw new AppError('NOT_FOUND', 'Staff member not found');
     if (target.systemRole === 'SUPER_ADMIN') await assertAnotherSuperAdmin(id);
-    await prisma.user.update({ where: { id }, data: { systemRole: 'USER' } });
+    await prisma.$transaction([
+      prisma.user.update({ where: { id }, data: { systemRole: 'USER' } }),
+      // Their console access ends now, not when the 8-hour session would have expired.
+      prisma.session.deleteMany({ where: { userId: id, scope: 'CONSOLE' } }),
+    ]);
     await audit(ctx, {
       userId: req.auth!.user.id,
       action: 'STAFF_REMOVED',

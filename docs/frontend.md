@@ -60,6 +60,10 @@ The documentation site lives in the web app, is public (no sign-in), and has two
 - The Swagger UI that used to be at `/docs` moved to **`/api-docs`** on the API itself, for internal developers. The edge does not proxy it in production (reach it on the API container); in development the Vite proxy forwards it.
 - Tests (`src/features/docs/docs.test.tsx`) check every guide's front matter, internal links and code fences, that the reference lists exactly the key-callable operations, the samples, search, and the rendered pages.
 
+## Auth screens
+
+Sign-in, registration, password reset, email verification and invitation screens share a split layout (`features/auth/AuthLayout.tsx`): the form on the right, and on the left an always-dark product panel (what goShort is, four capability points, an illustration, links to the docs and security page) whose headline follows the page (`/login`: welcome back, `/register`: get started). On phones only the form is shown.
+
 ## Marketing site (`/`)
 
 The public site shares one header (a mega menu for **Products**, **Solutions** and **Resources**, plus Security, Docs, theme toggle and sign-in) and a full footer. It lives in `src/features/marketing/`:

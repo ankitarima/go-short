@@ -77,6 +77,8 @@ export async function resetDb(ctx: AppContext) {
 export interface Client {
   agent: ReturnType<typeof request.agent>;
   csrf: string;
+  /** Set by consoleLogin: the app session's csrf token (csrf is then the console's). */
+  appCsrf?: string;
   userId: string;
   email: string;
 }
@@ -127,4 +129,13 @@ export async function addVerifiedDomain(
   ctx.dns.cname.set(hostname, [ctx.config.DEFAULT_SHORT_DOMAIN.split(':')[0]!]);
   await post(c, `/api/v1/workspaces/${wsId}/domains/${id}/verify`).expect(200);
   return id;
+}
+
+/** Signs the same person in to the CONSOLE (separate cookie, separate csrf token). Staff accounts only. */
+export async function consoleLogin(c: Client, password = 'correct-horse-battery'): Promise<Client> {
+  const res = await c.agent
+    .post('/api/v1/admin/auth/login')
+    .send({ email: c.email, password })
+    .expect(200);
+  return { ...c, csrf: res.body.data.csrfToken as string, appCsrf: c.csrf };
 }

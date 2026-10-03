@@ -314,6 +314,12 @@ export const schemas: Record<string, S> = {
     capabilities: arr(str()),
     links: obj({ grafana: nullable(str()), prometheus: nullable(str()) }),
     metricsConfigured: { type: 'boolean' },
+    csrfToken: str(),
+  }),
+  ConsoleSession: obj({
+    user: obj({ id: str(), email: str(), name: str() }),
+    role: { type: 'string', enum: ['MANAGER', 'ADMIN', 'SUPER_ADMIN'] },
+    csrfToken: str(),
   }),
   DailyCount: obj({ date: str(), count: int() }),
   Usage: obj({

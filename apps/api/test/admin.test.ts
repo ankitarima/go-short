@@ -6,6 +6,7 @@ import { createApp } from '../src/app';
 import { generateApiKey } from '../src/services/apiKeys';
 import {
   type Client,
+  consoleLogin,
   createWorkspace,
   del,
   get,
@@ -28,11 +29,13 @@ const A = (p = '') => `/api/v1/admin${p}`;
 async function makeAdmin(): Promise<Client> {
   const c = await registerUser(app, 'Root');
   await ctx.prisma.user.update({ where: { id: c.userId }, data: { systemRole: 'ADMIN' } });
-  return c;
+  return consoleLogin(c);
 }
+/** The app-side view of a staff client (the app session and its csrf token), for creating test data. */
+const asApp = (c: Client): Client => ({ ...c, csrf: c.appCsrf ?? c.csrf });
 
 describe('access control', () => {
-  it('is for system admins only: anonymous 401, ordinary users 403, workspace owners 403', async () => {
+  it('is for platform staff only: anonymous 401, and an ordinary app session (even a workspace owner) 401', async () => {
     const owner = await registerUser(app);
     await createWorkspace(owner);
     await request(app).get(A('/stats')).expect(401);
@@ -46,10 +49,10 @@ describe('access control', () => {
       '/queues',
       '/queues/analytics/failed',
     ]) {
-      await get(owner, A(p)).expect(403);
+      await get(owner, A(p)).expect(401); // the app cookie is not a console credential
     }
-    await post(owner, A('/cleanup/sessions/run')).expect(403);
-    await post(owner, A('/staff'), { email: owner.email, role: 'ADMIN' }).expect(403);
+    await post(owner, A('/cleanup/sessions/run')).expect(401);
+    await post(owner, A('/staff'), { email: owner.email, role: 'ADMIN' }).expect(401);
     expect(
       (await ctx.prisma.user.findUniqueOrThrow({ where: { id: owner.userId } })).systemRole,
     ).toBe('USER');
@@ -57,7 +60,7 @@ describe('access control', () => {
 
   it('an API key never reaches the admin area, even when its creator is an admin', async () => {
     const admin = await makeAdmin();
-    const ws = await createWorkspace(admin);
+    const ws = await createWorkspace(asApp(admin));
     const { key, keyHash, keyPrefix } = generateApiKey();
     await ctx.prisma.apiKey.create({
       data: {
@@ -70,7 +73,7 @@ describe('access control', () => {
       },
     });
     await get(admin, A('/stats')).expect(200);
-    await request(app).get(A('/stats')).set('Authorization', `Bearer ${key}`).expect(403);
+    await request(app).get(A('/stats')).set('Authorization', `Bearer ${key}`).expect(401);
   });
 
   it('CSRF still applies to admin writes made with a session', async () => {
@@ -160,7 +163,7 @@ describe('inspection', () => {
 const makeStaff = async (role: 'MANAGER' | 'ADMIN' | 'SUPER_ADMIN'): Promise<Client> => {
   const c = await registerUser(app, role);
   await ctx.prisma.user.update({ where: { id: c.userId }, data: { systemRole: role } });
-  return c;
+  return consoleLogin(c);
 };
 
 describe('platform roles', () => {
@@ -205,7 +208,7 @@ describe('platform roles', () => {
 
   it('an API key never carries platform powers, even when its creator is staff', async () => {
     const sa = await makeStaff('SUPER_ADMIN');
-    const ws = await createWorkspace(sa);
+    const ws = await createWorkspace(asApp(sa));
     const { key, keyPrefix, keyHash } = generateApiKey();
     await ctx.prisma.apiKey.create({
       data: {
@@ -217,7 +220,7 @@ describe('platform roles', () => {
         role: 'MEMBER',
       },
     });
-    await request(app).get(A('/me')).set('Authorization', `Bearer ${key}`).expect(403);
+    await request(app).get(A('/me')).set('Authorization', `Bearer ${key}`).expect(401);
   });
 });
 
@@ -236,7 +239,9 @@ describe('staff management', () => {
     await post(sa, A('/staff'), { email: 'nobody@example.com', role: 'ADMIN' }).expect(404);
     await post(sa, A('/staff'), { email: u.email, role: 'GOD' }).expect(400);
 
-    await get(u, A('/stats')).expect(200); // manager now has console access
+    await get(u, A('/stats')).expect(401); // being added is not a sign-in: they must sign in to the console
+    const uc = await consoleLogin(u);
+    await get(uc, A('/stats')).expect(200); // manager now has console access
     await patch(sa, A(`/staff/${u.userId}`), { role: 'ADMIN' }).expect(200);
     await patch(sa, A(`/staff/${sa.userId}`), { role: 'ADMIN' }).expect(403); // not yourself
     await del(sa, A(`/staff/${sa.userId}`)).expect(403);
@@ -246,7 +251,7 @@ describe('staff management', () => {
     await patch(sa, A(`/staff/${sa2.userId}`), { role: 'ADMIN' }).expect(200);
     await patch(sa2, A(`/staff/${u.userId}`), { role: 'MANAGER' }).expect(403); // demoted: can no longer manage staff
     await del(sa, A(`/staff/${u.userId}`)).expect(200);
-    await get(u, A('/stats')).expect(403);
+    await get(uc, A('/stats')).expect(401); // removal ends their console session at once
     expect((await ctx.prisma.user.findUniqueOrThrow({ where: { id: u.userId } })).systemRole).toBe(
       'USER',
     );
@@ -464,7 +469,7 @@ describe('monitoring', () => {
       const mgr = await makeStaff('MANAGER');
       const agent = { ...mgr, agent: request.agent(wiredApp) };
       await agent.agent
-        .post('/api/v1/auth/login')
+        .post('/api/v1/admin/auth/login')
         .send({ email: mgr.email, password: 'correct-horse-battery' })
         .expect(200);
       const m = (await agent.agent.get(A('/monitoring')).expect(200)).body.data;
@@ -597,5 +602,117 @@ describe('list filters and totals', () => {
     await get(sa, A('/users?staff=maybe')).expect(400);
     expect(typeof (await get(sa, A('/workspaces')).expect(200)).body.total).toBe('number');
     expect(typeof (await get(sa, A('/teams')).expect(200)).body.total).toBe('number');
+  });
+});
+
+describe('console sign-in is separate from the app', () => {
+  const cookieHeader = (res: request.Response) =>
+    (res.headers['set-cookie'] as unknown as string[]) ?? [];
+
+  it('signing in to the console does not sign you in to the app, and vice versa', async () => {
+    const c = await registerUser(app, 'Staffer');
+    await ctx.prisma.user.update({ where: { id: c.userId }, data: { systemRole: 'ADMIN' } });
+    // a FRESH browser (no app cookie): console login works and yields only the console cookie
+    const fresh = request.agent(app);
+    const res = await fresh
+      .post(A('/auth/login'))
+      .send({ email: c.email, password: 'correct-horse-battery' })
+      .expect(200);
+    const cookies = cookieHeader(res);
+    expect(cookies).toHaveLength(1);
+    expect(cookies[0]).toMatch(/^gs_console=/);
+    expect(cookies[0]).toMatch(/HttpOnly/i);
+    expect(cookies[0]).toMatch(/SameSite=Strict/i);
+    expect(cookies[0]).toMatch(/Path=\/api\/v1\/admin/i); // never even sent to the app's endpoints
+    expect(res.body.data).toMatchObject({ role: 'ADMIN', user: { email: c.email } });
+    await fresh.get(A('/stats')).expect(200);
+    await fresh.get('/api/v1/me').expect(401); // the app does not know them
+
+    // and the app session does not open the console
+    await get(c, A('/stats')).expect(401);
+    await get(c, '/api/v1/me').expect(200);
+  });
+
+  it('the console cookie is never accepted by the app, even if a client sends it everywhere', async () => {
+    const c = await registerUser(app, 'Staffer');
+    await ctx.prisma.user.update({ where: { id: c.userId }, data: { systemRole: 'SUPER_ADMIN' } });
+    const res = await request(app)
+      .post(A('/auth/login'))
+      .send({ email: c.email, password: 'correct-horse-battery' })
+      .expect(200);
+    const consoleCookie = cookieHeader(res)[0]!.split(';')[0]!;
+    await request(app).get(A('/stats')).set('Cookie', consoleCookie).expect(200);
+    await request(app).get('/api/v1/me').set('Cookie', consoleCookie).expect(401);
+    await request(app).get('/api/v1/workspaces').set('Cookie', consoleCookie).expect(401);
+    // an app session token presented under the console cookie name is rejected too (scope is checked)
+    const appRes = await request(app)
+      .post('/api/v1/auth/login')
+      .send({ email: c.email, password: 'correct-horse-battery' })
+      .expect(200);
+    const appToken = cookieHeader(appRes)[0]!.split(';')[0]!.replace('gs_session=', '');
+    await request(app).get(A('/stats')).set('Cookie', `gs_console=${appToken}`).expect(401);
+  });
+
+  it('only staff may sign in, only after the right password, and suspended or demoted staff are shut out', async () => {
+    const plain = await registerUser(app, 'Plain');
+    const wrong = await request(app)
+      .post(A('/auth/login'))
+      .send({ email: plain.email, password: 'wrong-password-123' });
+    expect(wrong.status).toBe(401); // wrong password: no hint about console access
+    const denied = await request(app)
+      .post(A('/auth/login'))
+      .send({ email: plain.email, password: 'correct-horse-battery' });
+    expect(denied.status).toBe(403);
+    expect(cookieHeader(denied).length).toBe(0);
+    expect(
+      (
+        await request(app)
+          .post(A('/auth/login'))
+          .send({ email: 'ghost@example.com', password: 'correct-horse-battery' })
+      ).status,
+    ).toBe(401);
+
+    const staff = await makeStaff('ADMIN');
+    await get(staff, A('/stats')).expect(200);
+    await ctx.prisma.user.update({ where: { id: staff.userId }, data: { disabledAt: new Date() } });
+    await get(staff, A('/stats')).expect(401); // suspended: the existing console session stops working
+    const sus = await request(app)
+      .post(A('/auth/login'))
+      .send({ email: staff.email, password: 'correct-horse-battery' });
+    expect(sus.body.error.code).toBe('ACCOUNT_DISABLED');
+    await ctx.prisma.user.update({
+      where: { id: staff.userId },
+      data: { disabledAt: null, systemRole: 'USER' },
+    });
+    await get(staff, A('/stats')).expect(401); // role removed behind our back: still shut out
+  });
+
+  it('signing out ends the console session; the app session is untouched; sessions are short-lived', async () => {
+    const staff = await makeStaff('MANAGER');
+    await get(asApp(staff), '/api/v1/me').expect(200);
+    await post(staff, A('/auth/logout')).expect(200);
+    await get(staff, A('/stats')).expect(401);
+    await get(asApp(staff), '/api/v1/me').expect(200);
+    const s2 = await consoleLogin(asApp(staff));
+    const row = await ctx.prisma.session.findFirstOrThrow({
+      where: { userId: s2.userId, scope: 'CONSOLE' },
+      orderBy: { createdAt: 'desc' },
+    });
+    const hours = (row.expiresAt.getTime() - row.createdAt.getTime()) / 3_600_000;
+    expect(hours).toBeLessThanOrEqual(8.01);
+    await del(staff, A('/stats'))
+      .expect(404)
+      .catch(() => undefined);
+  });
+
+  it('console sign-in is rate limited per IP', async () => {
+    let last = 0;
+    for (let i = 0; i < 12; i++)
+      last = (
+        await request(app)
+          .post(A('/auth/login'))
+          .send({ email: 'x@example.com', password: 'wrong-password-123' })
+      ).status;
+    expect(last).toBe(429);
   });
 });

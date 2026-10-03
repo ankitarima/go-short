@@ -4,7 +4,8 @@ import type { Prisma } from '@go-short/database';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { AppContext } from '../context';
-import { requireAuth, requirePlatform } from '../middleware/auth';
+import { loadConsoleSession, requireAuth, requirePlatform } from '../middleware/auth';
+import { consoleAuthRouter } from './adminAuth';
 import { audit } from '../services/audit';
 import { registerPlatformRoutes } from './adminPlatform';
 
@@ -24,7 +25,9 @@ const QUEUE_NAMES: readonly QueueName[] = ['analytics', 'cleanup', 'webhooks'];
 export function adminRouter(ctx: AppContext): Router {
   const r = Router();
   const { prisma } = ctx;
-  r.use(requireAuth, requirePlatform('MANAGER'));
+  // Sign-in/out are public to this router and must not see any app credentials.
+  r.use('/auth', consoleAuthRouter(ctx));
+  r.use(loadConsoleSession(ctx), requireAuth, requirePlatform('MANAGER'));
   const act = requirePlatform('ADMIN');
 
   const page = <T extends { id: string }>(rows: T[], limit: number) => ({

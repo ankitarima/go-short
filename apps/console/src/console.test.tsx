@@ -1,29 +1,36 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { capture, renderConsole } from '@/test/render';
-import { apiError, consoleMe, http, mkStaff, mkUser, ok, server, session } from '@/test/server';
+import { apiError, consoleMe, http, mkStaff, mkUser, ok, server } from '@/test/server';
 
 const asRole = (role: 'MANAGER' | 'ADMIN' | 'SUPER_ADMIN', over = {}) =>
-  server.use(
-    http.get('/api/v1/admin/me', () => ok(consoleMe(role, over))),
-    http.get('/api/v1/me', () => ok(session(role))),
-  );
+  server.use(http.get('/api/v1/admin/me', () => ok(consoleMe(role, over))));
 
 describe('access', () => {
-  it('shows the staff sign-in when signed out, and signs in', async () => {
+  it('uses its own sign-in: shows the staff form when signed out, signs in against the CONSOLE endpoint', async () => {
     let signedIn = false;
+    const appLogin = capture<string>();
     server.use(
-      http.get('/api/v1/me', () =>
-        signedIn ? ok(session()) : apiError(401, 'UNAUTHENTICATED', 'Sign in'),
+      http.get('/api/v1/admin/me', () =>
+        signedIn ? ok(consoleMe('ADMIN')) : apiError(401, 'UNAUTHENTICATED', 'Sign in'),
       ),
-      http.post('/api/v1/auth/login', async ({ request }) => {
+      http.post('/api/v1/admin/auth/login', async ({ request }) => {
         expect(await request.json()).toEqual({
           email: 'root@example.com',
           password: 'correct-horse-battery',
         });
         signedIn = true;
-        return ok({ csrfToken: 'csrf-123' });
+        return ok({ role: 'ADMIN', csrfToken: 'csrf-123' });
       }),
+      // The app's sign-in and session endpoints must never be used by the console.
+      http.get(
+        '/api/v1/me',
+        () => (appLogin.calls.push('me'), apiError(401, 'UNAUTHENTICATED', 'x')),
+      ),
+      http.post(
+        '/api/v1/auth/login',
+        () => (appLogin.calls.push('login'), apiError(401, 'X', 'x')),
+      ),
     );
     const { user } = renderConsole('/');
     expect(
@@ -33,12 +40,13 @@ describe('access', () => {
     await user.type(screen.getByLabelText('Password'), 'correct-horse-battery');
     await user.click(screen.getByRole('button', { name: /sign in/i }));
     expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument();
+    expect(appLogin.calls).toEqual([]);
   });
 
   it('shows the API’s message for a suspended account', async () => {
     server.use(
-      http.get('/api/v1/me', () => apiError(401, 'UNAUTHENTICATED', 'Sign in')),
-      http.post('/api/v1/auth/login', () =>
+      http.get('/api/v1/admin/me', () => apiError(401, 'UNAUTHENTICATED', 'Sign in')),
+      http.post('/api/v1/admin/auth/login', () =>
         apiError(403, 'ACCOUNT_DISABLED', 'This account has been disabled.'),
       ),
     );
@@ -49,26 +57,28 @@ describe('access', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('has been disabled');
   });
 
-  it('tells a signed-in non-staff user they have no access, and never loads data', async () => {
+  it('tells a signed-in customer without console access, with the API’s own wording, and never loads data', async () => {
     let dataCalls = 0;
     server.use(
-      http.get('/api/v1/me', () => ok(session('USER'))),
-      http.get('/api/v1/admin/me', () =>
-        apiError(403, 'FORBIDDEN', 'Platform staff access required'),
+      http.get('/api/v1/admin/me', () => apiError(401, 'UNAUTHENTICATED', 'Sign in')),
+      http.post('/api/v1/admin/auth/login', () =>
+        apiError(403, 'FORBIDDEN', 'This account does not have console access.'),
       ),
       http.get('/api/v1/admin/stats', () => (dataCalls++, ok({}))),
     );
-    renderConsole('/');
-    expect(await screen.findByRole('heading', { name: 'No console access' })).toBeInTheDocument();
-    expect(screen.getByText('root@example.com')).toBeInTheDocument();
+    const { user } = renderConsole('/');
+    await user.type(await screen.findByLabelText('Email'), 'customer@example.com');
+    await user.type(screen.getByLabelText('Password'), 'correct-horse-battery');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('does not have console access');
     expect(dataCalls).toBe(0);
   });
 
-  it('a session that expires drops back to sign-in', async () => {
+  it('a console session that expires drops back to sign-in', async () => {
     let expired = false;
     server.use(
-      http.get('/api/v1/me', () =>
-        expired ? apiError(401, 'UNAUTHENTICATED', 'x') : ok(session()),
+      http.get('/api/v1/admin/me', () =>
+        expired ? apiError(401, 'UNAUTHENTICATED', 'x') : ok(consoleMe('ADMIN')),
       ),
       http.get(
         '/api/v1/admin/stats',
@@ -79,6 +89,20 @@ describe('access', () => {
     expect(
       await screen.findByRole('heading', { name: 'Platform staff sign-in' }),
     ).toBeInTheDocument();
+  });
+
+  it('signing out calls the console endpoint (not the app’s) and returns to the sign-in', async () => {
+    const hits: string[] = [];
+    server.use(
+      http.post('/api/v1/admin/auth/logout', () => (hits.push('console'), ok({}))),
+      http.post('/api/v1/auth/logout', () => (hits.push('app'), ok({}))),
+    );
+    const { user } = renderConsole('/');
+    await user.click(await screen.findByRole('button', { name: /sign out/i }));
+    expect(
+      await screen.findByRole('heading', { name: 'Platform staff sign-in' }),
+    ).toBeInTheDocument();
+    expect(hits).toEqual(['console']);
   });
 });
 
