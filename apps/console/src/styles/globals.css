@@ -1,0 +1,3 @@
+@import '@go-short/ui/styles.css';
+/* Tailwind does not scan workspace packages by itself: tell it where the shared components live. */
+@source '../../../../packages/ui/src';

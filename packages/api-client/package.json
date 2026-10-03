@@ -1,0 +1,14 @@
+{
+  "name": "@go-short/api-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser client for the goShort API (cookie session + CSRF), shared by the web app and the console.",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  }
+}

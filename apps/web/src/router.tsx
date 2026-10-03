@@ -58,6 +58,12 @@ function RequireAuth() {
   );
 }
 
+/** Sends staff who still use /admin to the console (a different app under /console). */
+function ConsoleRedirect() {
+  useEffect(() => window.location.replace('/console/'), []);
+  return <Splash />;
+}
+
 /** Login/register: bounce signed-in users to the dashboard. */
 function GuestOnly() {
   const me = useMeQuery();
@@ -158,7 +164,8 @@ export const routes = [
         path: '/settings',
         lazy: lazy(() => import('@/features/settings/SettingsPage'), 'SettingsPage'),
       },
-      { path: '/admin', lazy: lazy(() => import('@/features/admin/AdminPage'), 'AdminPage') },
+      // Old bookmark: the platform admin area is now the separate console.
+      { path: '/admin', element: <ConsoleRedirect /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

@@ -25,6 +25,29 @@
 		reverse_proxy api:4000
 	}
 
+	# The platform console (a separate app under /console). Never indexed.
+	@console path /console /console/*
+	handle @console {
+		root * /srv
+		header {
+			X-Robots-Tag "noindex, nofollow"
+			Strict-Transport-Security "max-age=31536000"
+			Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'"
+			X-Content-Type-Options nosniff
+			Referrer-Policy strict-origin-when-cross-origin
+			X-Frame-Options DENY
+			Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+			Cross-Origin-Opener-Policy same-origin
+			-Server
+		}
+		@cassets path /console/assets/*
+		header @cassets Cache-Control "public, max-age=31536000, immutable"
+		@cshell not path /console/assets/*
+		header @cshell Cache-Control "no-cache"
+		try_files {path} /console/index.html
+		file_server
+	}
+
 	handle {
 		root * /srv
 		header {

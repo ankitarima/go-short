@@ -5,7 +5,7 @@ export interface User {
   email: string;
   name: string;
   emailVerified: boolean;
-  systemRole: 'USER' | 'ADMIN';
+  systemRole: 'USER' | 'MANAGER' | 'ADMIN' | 'SUPER_ADMIN';
 }
 export interface WorkspaceRef {
   id: string;
@@ -194,45 +194,4 @@ export interface Analytics {
     source: 'rollup' | 'events';
     notes: string[];
   };
-}
-
-export interface AdminStats {
-  users: number;
-  workspaces: number;
-  domains: number;
-  links: number;
-  qrCodes: number;
-  campaigns: number;
-  clickEventsEstimate: number;
-  queues: Record<string, Record<string, number>>;
-}
-export interface AdminUser {
-  id: string;
-  email: string;
-  name: string;
-  emailVerified: boolean;
-  systemRole: 'USER' | 'ADMIN';
-  createdAt: string;
-  workspaceCount: number;
-}
-export interface AdminWorkspace {
-  id: string;
-  name: string;
-  slug: string;
-  timezone: string;
-  retentionDays: number | null;
-  createdAt: string;
-  memberCount: number;
-  linkCount: number;
-  domainCount: number;
-  campaignCount: number;
-}
-export interface FailedJob {
-  id: string | null;
-  name: string;
-  attemptsMade: number;
-  failedReason: string | null;
-  createdAt: string;
-  failedAt: string | null;
-  summary: Record<string, unknown>;
 }

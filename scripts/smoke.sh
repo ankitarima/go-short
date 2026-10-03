@@ -32,6 +32,7 @@ check "X-Frame-Options" has "^x-frame-options: deny" "$hdr"
 code=$(c -o /dev/null -w '%{http_code}' "$BASE/api-keys"); check "client route /api-keys is the SPA, not the API (got $code)" is "$code" 200
 code=$(c -o /dev/null -w '%{http_code}' "$BASE/api/v1/me"); check "API is reachable and rejects anonymous /me (got $code)" is "$code" 401
 check "OpenAPI document served" has '"openapi"' "$(c "$BASE/openapi.json")"
+check "console is served and not indexable" has "x-robots-tag: noindex" "$(c -D- -o /dev/null "$BASE/console/")"
 check "public docs site is served" has 'id="root"' "$(c "$BASE/docs/introduction")"
 check "API responses are no-store" has "^cache-control:.*no-store" "$(c -D- -o /dev/null "$BASE/api/v1/me")"
 

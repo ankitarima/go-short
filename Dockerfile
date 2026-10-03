@@ -16,6 +16,9 @@ COPY apps/api/package.json apps/api/
 COPY apps/redirect/package.json apps/redirect/
 COPY apps/worker/package.json apps/worker/
 COPY apps/web/package.json apps/web/
+COPY apps/console/package.json apps/console/
+COPY packages/ui/package.json packages/ui/
+COPY packages/api-client/package.json packages/api-client/
 COPY packages/config/package.json packages/config/
 COPY packages/database/package.json packages/database/
 COPY packages/shared/package.json packages/shared/
@@ -28,7 +31,7 @@ RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
 FROM deps AS build
 COPY . .
 RUN npm run db:generate \
- && npm run build -w @go-short/api -w @go-short/redirect -w @go-short/worker -w @go-short/web
+ && npm run build -w @go-short/api -w @go-short/redirect -w @go-short/worker -w @go-short/web -w @go-short/console
 
 # ---- production-only node_modules per service (externals such as argon2, pg, bullmq) ----
 # `@prisma/client` declares the Prisma CLI as an OPTIONAL peer, which npm installs anyway because a dev
@@ -122,5 +125,6 @@ CMD ["npx", "prisma", "migrate", "deploy"]
 # ---- static web app + Caddy (TLS, routing, security headers) ----
 FROM caddy:${CADDY_VERSION}-alpine AS web
 COPY --from=build /app/apps/web/dist /srv
+COPY --from=build /app/apps/console/dist /srv/console
 COPY docker/caddy/Caddyfile docker/caddy/Caddyfile.http /etc/caddy/
 EXPOSE 80 443

@@ -120,15 +120,16 @@ The spec's 30-step order (section 120) is grouped into phases. **Phases 1-15 are
 
 ### API surface
 
-| Requirement                                                                                             | Status | Notes                                                                                                              |
-| ------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
-| Versioned `/api/v1`, cursor pagination (max 100), standard errors                                       | ✅     | nested `/workspaces/:id/...` plus flat routes for API keys                                                         |
-| OpenAPI 3.1 at `/openapi.json`, Swagger UI at `/api-docs` (internal)                                    | ✅     | bundled UI, no CDN; not proxied publicly                                                                           |
-| Public documentation site (`/docs`): guides + generated API reference                                   | ✅     | [frontend.md](frontend.md); search, dark mode, code samples; tests check content and links                         |
-| Marketing site: mega menu, home, product pages (goLinks, goCampaigns, goAnalytics), solutions, security | ✅     | [frontend.md](frontend.md); content-driven, tested, CSP-clean                                                      |
-| Webhooks (HMAC signatures, retries, encrypted secrets)                                                  | ✅     | `analytics.threshold` is reserved, not implemented                                                                 |
-| Feature flags (custom domains, campaigns, QR logos, password links, API)                                | ✅     | all five are enforced and tested                                                                                   |
-| Email provider adapter beyond console logging (e.g. SMTP)                                               | ⬜     | the `EmailProvider` interface exists; in production reset/invite links are not delivered until an adapter is added |
+| Requirement                                                                                                            | Status | Notes                                                                                                              |
+| ---------------------------------------------------------------------------------------------------------------------- | ------ | ------------------------------------------------------------------------------------------------------------------ |
+| Versioned `/api/v1`, cursor pagination (max 100), standard errors                                                      | ✅     | nested `/workspaces/:id/...` plus flat routes for API keys                                                         |
+| OpenAPI 3.1 at `/openapi.json`, Swagger UI at `/api-docs` (internal)                                                   | ✅     | bundled UI, no CDN; not proxied publicly                                                                           |
+| Public documentation site (`/docs`): guides + generated API reference                                                  | ✅     | [frontend.md](frontend.md); search, dark mode, code samples; tests check content and links                         |
+| Platform console (`/console`): users, workspaces, teams, staff and roles, usage, audit log, queues, Prometheus metrics | ✅     | [console.md](console.md); manager/admin/super-admin roles, account suspension, 20 UI tests, API tests              |
+| Marketing site: mega menu, home, product pages (goLinks, goCampaigns, goAnalytics), solutions, security                | ✅     | [frontend.md](frontend.md); content-driven, tested, CSP-clean                                                      |
+| Webhooks (HMAC signatures, retries, encrypted secrets)                                                                 | ✅     | `analytics.threshold` is reserved, not implemented                                                                 |
+| Feature flags (custom domains, campaigns, QR logos, password links, API)                                               | ✅     | all five are enforced and tested                                                                                   |
+| Email provider adapter beyond console logging (e.g. SMTP)                                                              | ⬜     | the `EmailProvider` interface exists; in production reset/invite links are not delivered until an adapter is added |
 
 ### Operations and deployment
 

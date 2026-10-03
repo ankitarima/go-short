@@ -49,9 +49,10 @@ export function UserMenu() {
         <DropdownMenuItem onSelect={() => navigate('/settings')}>
           <Settings /> Settings
         </DropdownMenuItem>
-        {me.user.systemRole === 'ADMIN' && (
-          <DropdownMenuItem onSelect={() => navigate('/admin')}>
-            <Shield /> Platform admin
+        {me.user.systemRole !== 'USER' && (
+          // The console is a separate app served under /console: a full page load, not a client route.
+          <DropdownMenuItem onSelect={() => window.location.assign('/console/')}>
+            <Shield /> Platform console
           </DropdownMenuItem>
         )}
         <DropdownMenuSeparator />

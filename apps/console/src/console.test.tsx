@@ -1,0 +1,512 @@
+import { screen, waitFor, within } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
+import { capture, renderConsole } from '@/test/render';
+import { apiError, consoleMe, http, mkStaff, mkUser, ok, server, session } from '@/test/server';
+
+const asRole = (role: 'MANAGER' | 'ADMIN' | 'SUPER_ADMIN', over = {}) =>
+  server.use(
+    http.get('/api/v1/admin/me', () => ok(consoleMe(role, over))),
+    http.get('/api/v1/me', () => ok(session(role))),
+  );
+
+describe('access', () => {
+  it('shows the staff sign-in when signed out, and signs in', async () => {
+    let signedIn = false;
+    server.use(
+      http.get('/api/v1/me', () =>
+        signedIn ? ok(session()) : apiError(401, 'UNAUTHENTICATED', 'Sign in'),
+      ),
+      http.post('/api/v1/auth/login', async ({ request }) => {
+        expect(await request.json()).toEqual({
+          email: 'root@example.com',
+          password: 'correct-horse-battery',
+        });
+        signedIn = true;
+        return ok({ csrfToken: 'csrf-123' });
+      }),
+    );
+    const { user } = renderConsole('/');
+    expect(
+      await screen.findByRole('heading', { name: 'Platform staff sign-in' }),
+    ).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Email'), 'root@example.com');
+    await user.type(screen.getByLabelText('Password'), 'correct-horse-battery');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+    expect(await screen.findByRole('heading', { name: 'Overview' })).toBeInTheDocument();
+  });
+
+  it('shows the API’s message for a suspended account', async () => {
+    server.use(
+      http.get('/api/v1/me', () => apiError(401, 'UNAUTHENTICATED', 'Sign in')),
+      http.post('/api/v1/auth/login', () =>
+        apiError(403, 'ACCOUNT_DISABLED', 'This account has been disabled.'),
+      ),
+    );
+    const { user } = renderConsole('/');
+    await user.type(await screen.findByLabelText('Email'), 'a@example.com');
+    await user.type(screen.getByLabelText('Password'), 'whatever-password');
+    await user.click(screen.getByRole('button', { name: /sign in/i }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('has been disabled');
+  });
+
+  it('tells a signed-in non-staff user they have no access, and never loads data', async () => {
+    let dataCalls = 0;
+    server.use(
+      http.get('/api/v1/me', () => ok(session('USER'))),
+      http.get('/api/v1/admin/me', () =>
+        apiError(403, 'FORBIDDEN', 'Platform staff access required'),
+      ),
+      http.get('/api/v1/admin/stats', () => (dataCalls++, ok({}))),
+    );
+    renderConsole('/');
+    expect(await screen.findByRole('heading', { name: 'No console access' })).toBeInTheDocument();
+    expect(screen.getByText('root@example.com')).toBeInTheDocument();
+    expect(dataCalls).toBe(0);
+  });
+
+  it('a session that expires drops back to sign-in', async () => {
+    let expired = false;
+    server.use(
+      http.get('/api/v1/me', () =>
+        expired ? apiError(401, 'UNAUTHENTICATED', 'x') : ok(session()),
+      ),
+      http.get(
+        '/api/v1/admin/stats',
+        () => ((expired = true), apiError(401, 'UNAUTHENTICATED', 'Authentication required')),
+      ),
+    );
+    renderConsole('/');
+    expect(
+      await screen.findByRole('heading', { name: 'Platform staff sign-in' }),
+    ).toBeInTheDocument();
+  });
+});
+
+describe('overview', () => {
+  it('shows platform totals, the busiest workspaces and the pipeline', async () => {
+    renderConsole('/');
+    expect(await screen.findByText('128')).toBeInTheDocument(); // users
+    expect(screen.getByText('31')).toBeInTheDocument(); // workspaces
+    expect(await screen.findByRole('link', { name: 'Acme' })).toHaveAttribute(
+      'href',
+      '/workspaces/w_1',
+    );
+    expect(screen.getByText('Failed jobs awaiting review')).toBeInTheDocument();
+    expect(screen.getByText('Analytics batches waiting')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Clicks over time' })).toBeInTheDocument();
+  });
+
+  it('role badge and navigation match the signed-in staff member', async () => {
+    asRole('SUPER_ADMIN');
+    renderConsole('/');
+    await screen.findByRole('heading', { name: 'Overview' });
+    expect(screen.getAllByText('Super admin').length).toBeGreaterThan(0);
+    const nav = screen.getByRole('navigation', { name: 'Console' });
+    for (const l of [
+      'Overview',
+      'Monitoring',
+      'Users',
+      'Workspaces',
+      'Teams',
+      'Platform staff',
+      'Audit log',
+      'Queues and jobs',
+    ])
+      expect(within(nav).getByRole('link', { name: l })).toBeInTheDocument();
+  });
+});
+
+describe('users', () => {
+  it('searches (debounced) and loads more with the cursor', async () => {
+    const seen: URLSearchParams[] = [];
+    server.use(
+      http.get('/api/v1/admin/users', ({ request }) => {
+        const p = new URL(request.url).searchParams;
+        seen.push(p);
+        if (p.get('cursor') === 'c2')
+          return ok([mkUser({ id: 'u_3', email: 'bob@example.com', name: 'Bob' })], {
+            nextCursor: null,
+          });
+        return ok([mkUser()], { nextCursor: 'c2' });
+      }),
+    );
+    const { user } = renderConsole('/users');
+    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Load more' }));
+    expect(await screen.findByText('Bob')).toBeInTheDocument();
+    await user.type(screen.getByLabelText('Search by name or email'), 'grace');
+    await waitFor(() => expect(seen.at(-1)!.get('q')).toBe('grace'));
+    expect(seen.some((p) => p.get('q') === 'g')).toBe(false); // debounced: no request per keystroke
+  });
+
+  it('an ADMIN can suspend an account after confirming, and re-enable it', async () => {
+    const calls = capture<string>();
+    server.use(
+      http.get('/api/v1/admin/users/u_1', () =>
+        ok({
+          ...mkUser(),
+          workspaceCount: undefined,
+          activeSessions: 2,
+          apiKeyCount: 1,
+          workspaces: [
+            {
+              id: 'w_1',
+              name: 'Acme',
+              slug: 'acme',
+              role: 'OWNER',
+              joinedAt: '2026-09-01T00:00:00Z',
+            },
+          ],
+        }),
+      ),
+      http.post(
+        '/api/v1/admin/users/u_1/disable',
+        () => (calls.calls.push('disable'), ok({ id: 'u_1', disabled: true })),
+      ),
+    );
+    const { user } = renderConsole('/users');
+    await user.click(await screen.findByRole('button', { name: 'Open ada@example.com' }));
+    const dlg = await screen.findByRole('dialog');
+    expect(await within(dlg).findByText('Acme')).toBeInTheDocument();
+    await user.click(within(dlg).getByRole('button', { name: /suspend account/i }));
+    expect(calls.calls).toEqual([]); // not yet: it asks first
+    const confirm = (await screen.findAllByRole('dialog')).at(-1)!;
+    expect(confirm).toHaveTextContent('signed out everywhere');
+    await user.click(within(confirm).getByRole('button', { name: 'Suspend account' }));
+    await waitFor(() => expect(calls.calls).toEqual(['disable']));
+  });
+
+  it('a MANAGER can look but not change anything', async () => {
+    asRole('MANAGER');
+    server.use(
+      http.get('/api/v1/admin/users/u_1', () =>
+        ok({ ...mkUser(), activeSessions: 0, apiKeyCount: 0, workspaces: [] }),
+      ),
+    );
+    const { user } = renderConsole('/users');
+    await user.click(await screen.findByRole('button', { name: 'Open ada@example.com' }));
+    const dlg = await screen.findByRole('dialog');
+    await within(dlg).findByText('Not a member of any workspace.');
+    expect(
+      within(dlg).queryByRole('button', { name: /suspend|re-enable/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('a suspended account is clearly marked', async () => {
+    server.use(
+      http.get('/api/v1/admin/users', () =>
+        ok([mkUser({ disabledAt: '2026-09-20T00:00:00Z' })], { nextCursor: null }),
+      ),
+    );
+    renderConsole('/users');
+    expect(await screen.findByText('Suspended')).toBeInTheDocument();
+  });
+});
+
+describe('platform staff', () => {
+  it('a SUPER_ADMIN adds staff, changes a role and removes access', async () => {
+    asRole('SUPER_ADMIN');
+    const add = capture<Record<string, unknown>>();
+    const change = capture<Record<string, unknown>>();
+    let removed = '';
+    server.use(
+      http.get('/api/v1/admin/staff', () =>
+        ok([
+          mkStaff({
+            id: 'u_me',
+            email: 'root@example.com',
+            name: 'Root User',
+            role: 'SUPER_ADMIN',
+          }),
+          mkStaff(),
+        ]),
+      ),
+      http.post(
+        '/api/v1/admin/staff',
+        async ({ request }) => (add.calls.push((await request.json()) as never), ok(mkStaff(), {})),
+      ),
+      http.patch(
+        '/api/v1/admin/staff/u_2',
+        async ({ request }) => (
+          change.calls.push((await request.json()) as never),
+          ok(mkStaff({ role: 'ADMIN' }))
+        ),
+      ),
+      http.delete('/api/v1/admin/staff/u_2', () => ((removed = 'u_2'), ok({}))),
+    );
+    const { user } = renderConsole('/staff');
+    expect(await screen.findByText('Grace Hopper')).toBeInTheDocument();
+    // you cannot edit yourself
+    expect(
+      screen.queryByRole('combobox', { name: 'Role for root@example.com' }),
+    ).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: /add staff/i }));
+    const dlg = await screen.findByRole('dialog');
+    await user.type(within(dlg).getByLabelText('Account email'), 'new@example.com');
+    await user.selectOptions(within(dlg).getByLabelText('Role'), 'ADMIN');
+    await user.click(within(dlg).getByRole('button', { name: 'Add staff' }));
+    await waitFor(() => expect(add.last()).toEqual({ email: 'new@example.com', role: 'ADMIN' }));
+
+    await user.selectOptions(
+      await screen.findByRole('combobox', { name: 'Role for grace@example.com' }),
+      'ADMIN',
+    );
+    await waitFor(() => expect(change.last()).toEqual({ role: 'ADMIN' }));
+
+    await user.click(screen.getByRole('button', { name: 'Remove grace@example.com' }));
+    await user.click(
+      within(await screen.findByRole('dialog')).getByRole('button', { name: 'Remove access' }),
+    );
+    await waitFor(() => expect(removed).toBe('u_2'));
+  });
+
+  it('shows the API’s reason when adding fails', async () => {
+    asRole('SUPER_ADMIN');
+    server.use(
+      http.post('/api/v1/admin/staff', () =>
+        apiError(
+          404,
+          'NOT_FOUND',
+          'There is no account with that email. They must register first.',
+        ),
+      ),
+    );
+    const { user } = renderConsole('/staff');
+    await user.click(await screen.findByRole('button', { name: /add staff/i }));
+    const dlg = await screen.findByRole('dialog');
+    await user.type(within(dlg).getByLabelText('Account email'), 'ghost@example.com');
+    await user.click(within(dlg).getByRole('button', { name: 'Add staff' }));
+    expect(await within(dlg).findByRole('alert')).toHaveTextContent('must register first');
+  });
+
+  it('an ADMIN sees who is staff but cannot manage them', async () => {
+    renderConsole('/staff');
+    expect(await screen.findByText('Grace Hopper')).toBeInTheDocument();
+    expect(
+      screen.getByText(/Only a super admin can add, change or remove staff/),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add staff/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+});
+
+describe('workspaces, teams and audit', () => {
+  it('lists workspaces and shows one in detail', async () => {
+    server.use(
+      http.get('/api/v1/admin/workspaces', () =>
+        ok(
+          [
+            {
+              id: 'w_1',
+              name: 'Acme',
+              slug: 'acme',
+              timezone: 'UTC',
+              retentionDays: null,
+              createdAt: '2026-09-01T00:00:00Z',
+              memberCount: 3,
+              linkCount: 120,
+              domainCount: 1,
+              campaignCount: 4,
+            },
+          ],
+          { nextCursor: null },
+        ),
+      ),
+      http.get('/api/v1/admin/workspaces/w_1', () =>
+        ok({
+          id: 'w_1',
+          name: 'Acme',
+          slug: 'acme',
+          timezone: 'Asia/Kolkata',
+          retentionDays: 90,
+          hashIps: true,
+          filterBots: false,
+          createdAt: '2026-09-01T00:00:00Z',
+          clicksLast30Days: 777,
+          counts: { links: 120, campaigns: 4, qrCodes: 9, apiKeys: 2, webhooks: 1 },
+          members: [
+            {
+              userId: 'u_1',
+              email: 'ada@example.com',
+              name: 'Ada',
+              disabled: false,
+              role: 'OWNER',
+              joinedAt: '2026-09-01T00:00:00Z',
+            },
+          ],
+          domains: [{ id: 'd_1', hostname: 'go.acme.com', status: 'VERIFIED' }],
+        }),
+      ),
+    );
+    const { user } = renderConsole('/workspaces');
+    await user.click(await screen.findByRole('link', { name: 'Acme' }));
+    expect(await screen.findByRole('heading', { name: 'Acme' })).toBeInTheDocument();
+    expect(await screen.findByText('777')).toBeInTheDocument();
+    expect(screen.getByText('go.acme.com')).toBeInTheDocument();
+    expect(screen.getByText('90 days')).toBeInTheDocument();
+    expect(screen.getByText('ada@example.com')).toBeInTheDocument();
+  });
+
+  it('filters teams by role', async () => {
+    const seen: URLSearchParams[] = [];
+    server.use(
+      http.get(
+        '/api/v1/admin/teams',
+        ({ request }) => (
+          seen.push(new URL(request.url).searchParams),
+          ok(
+            [
+              {
+                id: 'm_1',
+                role: 'OWNER',
+                joinedAt: '2026-09-01T00:00:00Z',
+                user: { id: 'u_1', email: 'ada@example.com', name: 'Ada', disabled: false },
+                workspace: { id: 'w_1', name: 'Acme', slug: 'acme' },
+              },
+            ],
+            { nextCursor: null },
+          )
+        ),
+      ),
+    );
+    const { user } = renderConsole('/teams');
+    expect(await screen.findByText('Ada')).toBeInTheDocument();
+    await user.selectOptions(screen.getByLabelText('Filter by role'), 'OWNER');
+    await waitFor(() => expect(seen.at(-1)!.get('role')).toBe('OWNER'));
+  });
+
+  it('shows who did what, and reveals the details on demand', async () => {
+    server.use(
+      http.get('/api/v1/admin/audit-logs', () =>
+        ok(
+          [
+            {
+              id: 'a_1',
+              workspaceId: null,
+              userId: 'u_me',
+              action: 'STAFF_ADDED',
+              resourceType: 'user',
+              resourceId: 'u_2',
+              metadata: { role: 'MANAGER' },
+              createdAt: '2026-10-01T10:00:00Z',
+              actor: { email: 'root@example.com', name: 'Root User' },
+            },
+          ],
+          { nextCursor: null },
+        ),
+      ),
+    );
+    const { user } = renderConsole('/audit');
+    expect(await screen.findByText('staff added')).toBeInTheDocument();
+    expect(within(screen.getByRole('main')).getByText('root@example.com')).toBeInTheDocument();
+    await user.click(screen.getByText('staff added'));
+    expect(await screen.findByText(/"role": "MANAGER"/)).toBeInTheDocument();
+  });
+});
+
+describe('queues', () => {
+  const failedJob = {
+    id: 'j_1',
+    name: 'batch',
+    attemptsMade: 5,
+    failedReason: 'database unavailable',
+    createdAt: '2026-10-01T10:00:00Z',
+    failedAt: '2026-10-01T10:05:00Z',
+    summary: { events: 420 },
+  };
+
+  it('an ADMIN can retry and delete failed jobs and run a cleanup', async () => {
+    const hits: string[] = [];
+    server.use(
+      http.get('/api/v1/admin/queues/analytics/failed', () => ok([failedJob])),
+      http.post(
+        '/api/v1/admin/queues/analytics/failed/j_1/retry',
+        () => (hits.push('retry'), ok({})),
+      ),
+      http.delete('/api/v1/admin/queues/analytics/failed/j_1', () => (hits.push('delete'), ok({}))),
+      http.post(
+        '/api/v1/admin/cleanup/sessions/run',
+        () => (hits.push('cleanup'), ok({ task: 'sessions' })),
+      ),
+    );
+    const { user } = renderConsole('/queues');
+    expect(await screen.findByText('database unavailable')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry job j_1' }));
+    await user.click(screen.getByRole('button', { name: 'Delete job j_1' }));
+    await user.click(screen.getByRole('button', { name: /sessions/ }));
+    await waitFor(() => expect(hits.sort()).toEqual(['cleanup', 'delete', 'retry']));
+  });
+
+  it('a MANAGER sees the failures but has no controls', async () => {
+    asRole('MANAGER');
+    server.use(http.get('/api/v1/admin/queues/analytics/failed', () => ok([failedJob])));
+    renderConsole('/queues');
+    expect(await screen.findByText('database unavailable')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Retry job/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /sessions/ })).toBeDisabled();
+  });
+});
+
+describe('monitoring', () => {
+  it('explains how to connect Prometheus when it is not configured', async () => {
+    renderConsole('/monitoring');
+    expect(await screen.findByText('Prometheus is not connected')).toBeInTheDocument();
+    expect(screen.getByText(/PROMETHEUS_URL/)).toBeInTheDocument();
+  });
+
+  it('shows live metrics with units, trend charts and the Grafana and Prometheus links', async () => {
+    server.use(
+      http.get('/api/v1/admin/monitoring', () =>
+        ok({
+          configured: true,
+          links: { grafana: 'https://grafana.example.com', prometheus: 'https://prom.example.com' },
+          metrics: [
+            {
+              name: 'redirects_per_second',
+              label: 'Redirects per second',
+              unit: 'rps',
+              value: 1234.5,
+            },
+            {
+              name: 'redirect_p95_ms',
+              label: 'Redirect p95 handling time',
+              unit: 'ms',
+              value: 3.21,
+            },
+            { name: 'api_5xx_ratio', label: 'API 5xx responses', unit: 'percent', value: 4.5 },
+            {
+              name: 'failed_jobs',
+              label: 'Failed jobs awaiting review',
+              unit: 'count',
+              value: null,
+            },
+          ],
+        }),
+      ),
+      http.get('/api/v1/admin/monitoring/range', ({ request }) =>
+        ok({
+          name: new URL(request.url).searchParams.get('query'),
+          label: 'Trend',
+          unit: 'rps',
+          minutes: 60,
+          points: [
+            { t: 1790000000000, v: 1 },
+            { t: 1790000060000, v: 2 },
+          ],
+        }),
+      ),
+    );
+    renderConsole('/monitoring');
+    expect(await screen.findByTestId('metric-redirects_per_second')).toHaveTextContent('1,235 /s');
+    expect(screen.getByTestId('metric-redirect_p95_ms')).toHaveTextContent('3.2 ms');
+    expect(screen.getByTestId('metric-api_5xx_ratio')).toHaveTextContent('4.5%');
+    expect(screen.getByTestId('metric-failed_jobs')).toHaveTextContent('n/a');
+    expect(screen.getByRole('link', { name: /Grafana/ })).toHaveAttribute(
+      'href',
+      'https://grafana.example.com',
+    );
+    expect(screen.getByRole('link', { name: /Prometheus/ })).toHaveAttribute('target', '_blank');
+    await waitFor(() => expect(screen.getAllByRole('img', { name: /over time/ })).toHaveLength(4));
+  });
+});

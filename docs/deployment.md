@@ -48,10 +48,10 @@ Compose refuses to start if a required secret is empty. The apps additionally re
 
 Then:
 
-1. Open `https://APP_DOMAIN`, register, and create a workspace. **The first account is an ordinary user.** To see the platform Admin area, grant yourself the role (`scripts/grant-admin.ts` needs database access from the host, which this stack does not expose, so use the database container):
+1. Open `https://APP_DOMAIN`, register, and create a workspace. **The first account is an ordinary user.** To use the platform console at `https://APP_DOMAIN/console`, make yourself the first super admin (`scripts/grant-admin.ts` needs database access from the host, which this stack does not expose, so use the database container). Later staff are added from the console itself ([console.md](console.md)):
    ```bash
    docker compose --env-file .env.production -f docker-compose.prod.yml exec postgres \
-     sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "update \"User\" set \"systemRole\"='"'"'ADMIN'"'"' where email='"'"'you@example.com'"'"'"'
+     sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "update \"User\" set \"systemRole\"='"'"'SUPER_ADMIN'"'"' where email='"'"'you@example.com'"'"'"'
    ```
 2. Download the GeoIP database once (country/city analytics are empty without it), then restart the worker so it loads it:
    ```bash

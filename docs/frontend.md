@@ -45,7 +45,7 @@ Vite proxies `/api/*`, `/api-docs`, `/openapi.json`, `/health` and `/ready` to `
 npm test --workspace @go-short/web
 ```
 
-Vitest + jsdom + Testing Library + MSW (`onUnhandledRequest: 'error'`, so a screen calling an endpoint the test did not expect fails). Tests mount the real route table, so guards, redirects, the shell and lazy routes are exercised, not mocked. They cover auth flows, session expiry, role-based UI, links, campaigns, QR designer, analytics filters and requests, team rules, API key reveal/revoke, and smoke tests for the dashboard, domains, settings and admin. Browser-level end-to-end tests with Playwright are phase 16; Playwright was only used during development to check the UI visually in light, dark and mobile widths.
+Vitest + jsdom + Testing Library + MSW (`onUnhandledRequest: 'error'`, so a screen calling an endpoint the test did not expect fails). Tests mount the real route table, so guards, redirects, the shell and lazy routes are exercised, not mocked. They cover auth flows, session expiry, role-based UI, links, campaigns, QR designer, analytics filters and requests, team rules, API key reveal/revoke, and smoke tests for the dashboard, domains and settings. The platform admin screens live in the separate [console](console.md). Browser-level end-to-end tests with Playwright are phase 16; Playwright was only used during development to check the UI visually in light, dark and mobile widths.
 
 ## Production headers
 

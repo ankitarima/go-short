@@ -37,20 +37,18 @@ describe('app shell', () => {
     expect(within(nav).queryByRole('link', { name: 'API Keys' })).not.toBeInTheDocument();
   });
 
-  it('only offers the Platform admin entry to system administrators', async () => {
+  it('only offers the Platform console entry to platform staff', async () => {
     const a = renderApp('/dashboard');
     await a.user.click(await screen.findByRole('button', { name: 'Account menu' }));
-    expect(screen.queryByText('Platform admin')).not.toBeInTheDocument();
+    expect(screen.queryByText('Platform console')).not.toBeInTheDocument();
     a.unmount();
-    asRole('OWNER', { systemRole: 'ADMIN' });
-    const b = renderApp('/dashboard');
-    await b.user.click(await screen.findByRole('button', { name: 'Account menu' }));
-    expect(await screen.findByText('Platform admin')).toBeInTheDocument();
-  });
-
-  it('keeps non-admins out of /admin and viewers out of /api-keys', async () => {
-    renderApp('/admin');
-    expect(await screen.findByRole('heading', { name: /welcome back/i })).toBeInTheDocument();
+    for (const role of ['MANAGER', 'ADMIN', 'SUPER_ADMIN'] as const) {
+      asRole('OWNER', { systemRole: role });
+      const b = renderApp('/dashboard');
+      await b.user.click(await screen.findByRole('button', { name: 'Account menu' }));
+      expect(await screen.findByText('Platform console')).toBeInTheDocument();
+      b.unmount();
+    }
   });
 
   it('switches workspaces and clears what was cached for the previous one', async () => {

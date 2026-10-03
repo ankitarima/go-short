@@ -33,6 +33,10 @@ x-env: &env
   # One hop: Caddy. Never "true".
   TRUST_PROXY: '1'
   METRICS_HOST: 0.0.0.0
+  # Console: live metrics (Prometheus, internal) and the links shown to platform staff. Optional.
+  PROMETHEUS_URL: ${PROMETHEUS_URL:-}
+  CONSOLE_GRAFANA_URL: ${CONSOLE_GRAFANA_URL:-}
+  CONSOLE_PROMETHEUS_URL: ${CONSOLE_PROMETHEUS_URL:-}
   METRICS_TOKEN: ${METRICS_TOKEN:?set METRICS_TOKEN (openssl rand -hex 24)}
   REDIRECT_STATUS: ${REDIRECT_STATUS:-302}
   FEATURE_CUSTOM_DOMAINS: ${FEATURE_CUSTOM_DOMAINS:-true}

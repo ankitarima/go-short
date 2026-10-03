@@ -1,0 +1,60 @@
+# Console
+
+The console is the platform staff area: one place to see and manage the whole installation. It is a separate app (`apps/console`) that shares the design system (`packages/ui`) and API client (`packages/api-client`) with the web app, and is served at **`https://APP_DOMAIN/console`** on the same origin, so staff sign in with their normal goShort account and session. It is never indexed (`noindex` meta and `X-Robots-Tag`).
+
+## Roles
+
+Platform roles are separate from workspace roles and are checked by the API on every request; the UI only hides what the API would refuse.
+
+| Role            | Can                                                                                                                |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| **Manager**     | Read everything. Intended for monitoring and support.                                                              |
+| **Admin**       | Everything a manager can, plus suspend and re-enable accounts, retry or delete failed jobs, and run cleanup tasks. |
+| **Super admin** | Everything an admin can, plus add, change and remove platform staff.                                               |
+
+Rules the API enforces: nobody changes their own role or suspends themselves; only a super admin can change or suspend another staff member; the platform always keeps at least one **active** super admin. API keys never carry platform powers.
+
+## What is in it
+
+| Page                | Purpose                                                                                                                                                                                  |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Overview**        | Totals (users, workspaces, links, domains), clicks and sign-ups over 7/30/90 days, the busiest workspaces, pipeline status                                                               |
+| **Monitoring**      | Live health from Prometheus (redirects/s, p95 latency, error ratios, cache hit ratio, queue depth, failed logins, services up), trend charts, and buttons to open Grafana and Prometheus |
+| **Users**           | Search all accounts; open one to see its workspaces, sessions and API keys; suspend or re-enable it                                                                                      |
+| **Workspaces**      | Every workspace with its size; a detail page with members, domains, privacy settings and 30-day clicks                                                                                   |
+| **Teams**           | Every membership across all workspaces, filterable by role                                                                                                                               |
+| **Platform staff**  | Who has console access and with which role; super admins add, change and remove them                                                                                                     |
+| **Audit log**       | Security-relevant actions across the platform, with who did them, including everything staff do in the console                                                                           |
+| **Queues and jobs** | Queue counts, failed jobs (payloads summarised, never shown), retry/delete, and run-now cleanup tasks                                                                                    |
+
+## Suspending an account
+
+An admin can suspend an account from the user's detail. It takes effect immediately: every session is deleted, sign-in is refused (with a message only after the correct password, so it cannot be used to discover which emails are suspended), and the account's API keys stop working. Workspaces and data are untouched. Re-enabling restores access (the person signs in again; sessions are not resurrected).
+
+## Getting access
+
+1. Register a normal account in the app.
+2. Make the first super admin from the server (there is no web shortcut by design):
+   ```bash
+   npx tsx --env-file=.env scripts/grant-admin.ts you@example.com
+   ```
+   In the Docker deployment use the SQL in [deployment.md](deployment.md).
+3. Open `/console`. From then on, add managers, admins and super admins under **Platform staff**.
+
+Existing installs: the migration that introduced platform roles promoted every previous `ADMIN` to `SUPER_ADMIN`, because the old role could do everything, including granting itself to others.
+
+## Monitoring setup
+
+The API reads Prometheus through a **fixed list of named queries** (no PromQL from the browser), so staff get charts without a query console that could read or overload anything else. Configure:
+
+| Variable                 | Meaning                                                                                                                                                     |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PROMETHEUS_URL`         | Prometheus base URL the **API** can reach (for example `http://prometheus:9090` with the `monitoring` profile). Unset: the page explains how to connect it. |
+| `CONSOLE_GRAFANA_URL`    | Link shown to staff (opens in a new tab)                                                                                                                    |
+| `CONSOLE_PROMETHEUS_URL` | Link shown to staff (opens in a new tab)                                                                                                                    |
+
+Grafana and Prometheus are not published by the production compose file; reach them through your own proxy or an SSH tunnel and put that address in the link variables. See [monitoring.md](monitoring.md).
+
+## Development
+
+`npm run dev` starts the console on http://localhost:5174/console/ together with everything else (API on :4000, web on :5173). It proxies `/api` to the API, and the session cookie is shared with the web app on localhost. Tests: `npm test --workspace @go-short/console` (MSW, real routes, role-based UI).

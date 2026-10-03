@@ -21,16 +21,25 @@ Nothing is deleted unless you configure it: the only unconditional deletions are
 
 Per workspace (`PATCH /workspaces/:id`): `hashIps` (store a day-salted IP hash; default on), `filterBots` (hide bot traffic in analytics by default; bots are always stored), `retentionDays` (raw event retention; `null` = unlimited). The operator is responsible for compliance with the privacy laws that apply to them; this software does not make a deployment compliant on its own.
 
-## System administrators
+## Platform staff and the console
 
-Admin is a platform role (`User.systemRole = ADMIN`), separate from workspace roles. There is deliberately no sign-up or environment-variable shortcut; grant it with shell access:
+Platform staff run the whole installation from the **console** (`/console`, see [console.md](console.md)). Platform roles are separate from workspace roles (`User.systemRole`):
+
+| Role          | Can                                                                                              |
+| ------------- | ------------------------------------------------------------------------------------------------ |
+| `MANAGER`     | Read everything (users, workspaces, teams, usage, audit log, queues, monitoring); change nothing |
+| `ADMIN`       | Also suspend/re-enable accounts, retry or delete failed jobs, run cleanup tasks                  |
+| `SUPER_ADMIN` | Also add, change and remove platform staff                                                       |
+
+There is deliberately no sign-up or environment-variable shortcut: the **first** super admin needs shell access. After that, super admins manage staff in the console.
 
 ```bash
-npx tsx --env-file=.env scripts/grant-admin.ts you@example.com          # grant
-npx tsx --env-file=.env scripts/grant-admin.ts you@example.com --revoke # revoke
+npx tsx --env-file=.env scripts/grant-admin.ts you@example.com                  # SUPER_ADMIN
+npx tsx --env-file=.env scripts/grant-admin.ts you@example.com --role MANAGER   # or ADMIN
+npx tsx --env-file=.env scripts/grant-admin.ts you@example.com --revoke
 ```
 
-`/api/v1/admin/*` (session only, CSRF-protected; API keys are refused even for an admin's key): `GET /stats`, `/users`, `/workspaces`, `/domains`, `/links`, `/audit-logs`, `/queues`, `/queues/:queue/failed`; `PATCH /users/:id` (grant/revoke admin); `POST /queues/:queue/failed/:jobId/retry`, `DELETE /queues/:queue/failed/:jobId`; `POST /cleanup/:task/run`. Admins cannot change their own role or remove the last admin. Responses use explicit field lists: password hashes, tokens, API key hashes and webhook secrets are never exposed, and analytics job payloads (which contain raw IPs) are shown only as a summary (`batchId`, event count).
+`/api/v1/admin/*` is the console's API (session only, CSRF-protected; API keys are refused even for staff's keys): `GET /me`, `/stats`, `/usage`, `/users`, `/users/:id`, `/workspaces`, `/workspaces/:id`, `/teams`, `/domains`, `/links`, `/audit-logs`, `/staff`, `/queues`, `/queues/:queue/failed`, `/monitoring`, `/monitoring/range`; `POST /users/:id/disable|enable`; `POST|PATCH|DELETE /staff`; `POST /queues/:queue/failed/:jobId/retry`, `DELETE /queues/:queue/failed/:jobId`; `POST /cleanup/:task/run`. Staff cannot change their own role or suspend themselves, and the platform always keeps at least one active super admin. Responses use explicit field lists: password hashes, tokens, API key hashes and webhook secrets are never exposed, and analytics job payloads (which contain raw IPs) are shown only as a summary (`batchId`, event count). Every change is written to the audit log.
 
 ### Failed jobs (dead letter)
 

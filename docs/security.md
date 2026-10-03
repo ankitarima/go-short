@@ -66,3 +66,7 @@ Operators are responsible for compliance with applicable privacy laws; see [anal
 ## Analytics export
 
 Raw-event CSV exports exclude IP and visitor hashes, neutralize spreadsheet formulas, and need MEMBER or above.
+
+## Platform console
+
+Platform staff (`MANAGER`, `ADMIN`, `SUPER_ADMIN`) use the console at `/console` (see [console.md](console.md)). The API checks the role on every request, only for browser sessions; API keys can never reach it. Suspending an account deletes its sessions and disables its API keys at once. Staff changes and suspensions are written to the audit log, the platform always keeps one active super admin, and metrics are read through a fixed list of server-defined queries (the browser can never send PromQL).
