@@ -7,7 +7,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { formatNumber } from '@/lib/format';
+import { formatNumber } from '@go-short/ui/lib/format';
 
 interface Point {
   date: string;

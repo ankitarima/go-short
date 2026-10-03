@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '../lib/cn';
 
 const field =
   'w-full rounded-md border border-border-strong bg-background px-3 text-sm text-foreground placeholder:text-subtle-foreground transition-colors hover:border-subtle-foreground focus-visible:border-foreground focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-blue/15 disabled:cursor-not-allowed disabled:bg-surface disabled:opacity-60 aria-[invalid=true]:border-red aria-[invalid=true]:focus-visible:ring-red/15';

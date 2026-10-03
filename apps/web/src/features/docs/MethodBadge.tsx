@@ -1,4 +1,4 @@
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 
 const STYLE: Record<string, string> = {
   get: 'bg-blue-soft text-blue',

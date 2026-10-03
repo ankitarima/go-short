@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '../lib/cn';
 import { Label } from './label';
 
 /** Label + control + hint + error, wired together for accessibility. */

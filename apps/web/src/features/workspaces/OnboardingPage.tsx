@@ -1,9 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
+import { Field } from '@go-short/ui/components/field';
+import { Input } from '@go-short/ui/components/input';
 import { AuthLayout } from '@/features/auth/AuthLayout';
 import { ME_KEY } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';

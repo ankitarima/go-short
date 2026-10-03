@@ -14,7 +14,7 @@ import {
   plural,
   titleCase,
   truncate,
-} from './format';
+} from '@go-short/ui/lib/format';
 
 describe('format helpers', () => {
   it('formats numbers and percentages', () => {

@@ -1,4 +1,4 @@
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 
 /** goShort mark: two forward chevrons ("go") in a rounded square, with the wordmark. */
 export function LogoMark({ size = 22, className }: { size?: number; className?: string }) {

@@ -1,22 +1,22 @@
 import { Megaphone, MoreHorizontal, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { ConfirmDialog } from '@/components/ui/dialog';
+import { Badge } from '@go-short/ui/components/badge';
+import { Button } from '@go-short/ui/components/button';
+import { Card } from '@go-short/ui/components/card';
+import { ConfirmDialog } from '@go-short/ui/components/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/states';
-import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/table';
+} from '@go-short/ui/components/dropdown-menu';
+import { Input } from '@go-short/ui/components/input';
+import { PageHeader } from '@go-short/ui/components/page-header';
+import { EmptyState, ErrorState, TableSkeleton } from '@go-short/ui/components/states';
+import { Table, TBody, TD, TH, THead, TR } from '@go-short/ui/components/table';
 import { useWorkspace } from '@/hooks/useAuth';
-import { formatDate, formatNumber, formatRelative } from '@/lib/format';
+import { formatDate, formatNumber, formatRelative } from '@go-short/ui/lib/format';
 import type { Campaign } from '@/types/api';
 import { CampaignFormDialog } from './CampaignFormDialog';
 import { campaignPhase, useCampaigns, useDeleteCampaign } from './hooks';

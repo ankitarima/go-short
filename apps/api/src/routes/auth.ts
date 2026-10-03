@@ -92,6 +92,14 @@ export function authRouter(ctx: AppContext): Router {
       ctx.metrics?.logins.inc({ result: 'failure' });
       throw new AppError('INVALID_CREDENTIALS', 'Invalid email or password');
     }
+    // Only after the password is proven, so this cannot be used to find out which emails are suspended.
+    if (user.disabledAt) {
+      ctx.metrics?.logins.inc({ result: 'failure' });
+      throw new AppError(
+        'ACCOUNT_DISABLED',
+        'This account has been disabled. Contact your administrator.',
+      );
+    }
     ctx.metrics?.logins.inc({ result: 'success' });
     const token = await createSession(ctx, user.id, req);
     const session = await prisma.session.findUniqueOrThrow({ where: { tokenHash: sha256(token) } });

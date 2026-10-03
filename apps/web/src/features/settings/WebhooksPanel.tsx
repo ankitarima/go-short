@@ -9,12 +9,12 @@ import {
 } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
-import { Card } from '@/components/ui/card';
-import { Checkbox } from '@/components/ui/checkbox';
-import { CodeValue } from '@/components/ui/copy-button';
+import { Badge } from '@go-short/ui/components/badge';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
+import { Card } from '@go-short/ui/components/card';
+import { Checkbox } from '@go-short/ui/components/checkbox';
+import { CodeValue } from '@go-short/ui/components/copy-button';
 import {
   ConfirmDialog,
   Dialog,
@@ -24,18 +24,18 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@go-short/ui/components/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/states';
-import { Switch } from '@/components/ui/switch';
-import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/table';
+} from '@go-short/ui/components/dropdown-menu';
+import { Field } from '@go-short/ui/components/field';
+import { Input } from '@go-short/ui/components/input';
+import { EmptyState, ErrorState, TableSkeleton } from '@go-short/ui/components/states';
+import { Switch } from '@go-short/ui/components/switch';
+import { Table, TBody, TD, TH, THead, TR } from '@go-short/ui/components/table';
 import { useWorkspace, wsKey, wsPath } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
 import type { Webhook, WebhookCreated } from '@/types/api';

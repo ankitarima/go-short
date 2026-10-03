@@ -11,8 +11,8 @@ import {
   Users,
 } from 'lucide-react';
 import { NavLink, Outlet } from 'react-router-dom';
-import { cn } from '@/lib/cn';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@go-short/ui/lib/cn';
+import { Dialog, DialogContent, DialogTitle } from '@go-short/ui/components/dialog';
 import { atLeast, useWorkspace } from '@/hooks/useAuth';
 import { useUi } from '@/stores/ui';
 import { Logo } from './Logo';

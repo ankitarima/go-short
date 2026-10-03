@@ -2,7 +2,7 @@ import * as DialogPrimitive from '@radix-ui/react-dialog';
 import { BookOpen, CornerDownLeft, Search, Terminal } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 import { MethodBadge } from './MethodBadge';
 import { buildIndex, search } from './lib/search';
 import { PAGES } from './lib/content';

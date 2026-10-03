@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
 import {
   Dialog,
   DialogBody,
@@ -11,14 +11,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Disclosure } from '@/components/ui/collapsible';
-import { Field } from '@/components/ui/field';
-import { Input, NativeSelect } from '@/components/ui/input';
-import { Switch } from '@/components/ui/switch';
+} from '@go-short/ui/components/dialog';
+import { Disclosure } from '@go-short/ui/components/collapsible';
+import { Field } from '@go-short/ui/components/field';
+import { Input, NativeSelect } from '@go-short/ui/components/input';
+import { Switch } from '@go-short/ui/components/switch';
 import { useWorkspace, wsPath } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
-import { isoToLocalInput, localToIso } from '@/lib/format';
+import { isoToLocalInput, localToIso } from '@go-short/ui/lib/format';
 import type { Link } from '@/types/api';
 import { invalidateLinks, useCampaignOptions, useUsableDomains } from './hooks';
 

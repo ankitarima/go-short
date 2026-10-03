@@ -1,4 +1,11 @@
-import { AppError, can, type Permission, type WorkspaceRole } from '@go-short/shared';
+import {
+  AppError,
+  can,
+  platformAtLeast,
+  type Permission,
+  type StaffRole,
+  type WorkspaceRole,
+} from '@go-short/shared';
 import type { Request, RequestHandler } from 'express';
 import type { AppContext } from '../context';
 import { safeEqual, sha256 } from '../lib/crypto';
@@ -15,7 +22,9 @@ async function authenticateApiKey(ctx: AppContext, req: Request, key: string): P
     include: { createdBy: true },
   });
   const now = new Date();
-  if (!row || row.revokedAt || (row.expiresAt && row.expiresAt <= now)) return;
+  // A key stops working the moment its creator's account is suspended.
+  if (!row || row.revokedAt || (row.expiresAt && row.expiresAt <= now) || row.createdBy.disabledAt)
+    return;
 
   // Per-key fixed-window rate limit; fails open if Redis is down (logged).
   try {
@@ -81,7 +90,8 @@ export const loadSession =
       where: { tokenHash: sha256(token) },
       include: { user: true },
     });
-    if (session && session.expiresAt > new Date()) {
+    // A suspended account has no working session, even if one somehow survived suspension.
+    if (session && session.expiresAt > new Date() && !session.user.disabledAt) {
       req.auth = {
         method: 'session',
         session: { id: session.id, csrfToken: session.csrfToken },
@@ -133,10 +143,16 @@ export const requireApiKey: RequestHandler = (req, _res, next) =>
         ),
       );
 
-export const requireSystemAdmin: RequestHandler = (req, _res, next) =>
-  req.auth?.method === 'session' && req.auth.user.systemRole === 'ADMIN'
-    ? next()
-    : next(new AppError('FORBIDDEN', 'Admin access required'));
+/**
+ * Platform (console) gate: a signed-in SESSION whose platform role is at least `min`. API keys never
+ * carry platform powers. Anyone else gets 403 (the console's existence is not a secret, the data is).
+ */
+export const requirePlatform =
+  (min: StaffRole): RequestHandler =>
+  (req, _res, next) =>
+    req.auth?.method === 'session' && platformAtLeast(req.auth.user.systemRole, min)
+      ? next()
+      : next(new AppError('FORBIDDEN', 'Platform staff access required'));
 
 /**
  * Tenant gate. For a signed-in user the workspace comes from the URL but access is decided solely

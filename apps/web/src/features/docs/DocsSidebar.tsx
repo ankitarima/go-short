@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 import { MethodBadge } from './MethodBadge';
 import { sections, type Area } from './lib/content';
 import { operationPath } from './lib/openapi';

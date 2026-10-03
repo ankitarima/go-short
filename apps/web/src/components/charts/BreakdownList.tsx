@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { formatNumber } from '@/lib/format';
+import { formatNumber } from '@go-short/ui/lib/format';
 
 export interface BreakdownItem {
   key: string;

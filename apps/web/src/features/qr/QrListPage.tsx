@@ -1,23 +1,23 @@
 import { Download, MoreHorizontal, Pencil, Plus, QrCode, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { ConfirmDialog } from '@/components/ui/dialog';
+import { Badge } from '@go-short/ui/components/badge';
+import { Button } from '@go-short/ui/components/button';
+import { Card } from '@go-short/ui/components/card';
+import { ConfirmDialog } from '@go-short/ui/components/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { PageHeader } from '@/components/ui/page-header';
-import { Skeleton } from '@/components/ui/skeleton';
-import { EmptyState, ErrorState } from '@/components/ui/states';
+} from '@go-short/ui/components/dropdown-menu';
+import { PageHeader } from '@go-short/ui/components/page-header';
+import { Skeleton } from '@go-short/ui/components/skeleton';
+import { EmptyState, ErrorState } from '@go-short/ui/components/states';
 import { useCampaignOptions, useLinks } from '@/features/links/hooks';
 import { useWorkspace, wsPath } from '@/hooks/useAuth';
 import { apiUrl } from '@/lib/api';
-import { displayUrl, formatRelative } from '@/lib/format';
+import { displayUrl, formatRelative } from '@go-short/ui/lib/format';
 import type { Qr } from '@/types/api';
 import { useDeleteQr, useQrCodes } from './hooks';
 import { QrThumb } from './QrThumb';

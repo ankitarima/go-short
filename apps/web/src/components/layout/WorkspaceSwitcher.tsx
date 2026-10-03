@@ -1,7 +1,7 @@
 import { Check, ChevronsUpDown, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar } from '@go-short/ui/components/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,10 +9,10 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@go-short/ui/components/dropdown-menu';
 import { CreateWorkspaceDialog } from '@/features/workspaces/CreateWorkspaceDialog';
 import { useWorkspace } from '@/hooks/useAuth';
-import { ROLE_LABEL } from '@/lib/format';
+import { ROLE_LABEL } from '@go-short/ui/lib/format';
 import { useQueryClient } from '@tanstack/react-query';
 
 export function WorkspaceSwitcher() {

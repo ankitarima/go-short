@@ -1,6 +1,6 @@
 import { Check, Globe, Link2, Search } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 
 /** Static product illustrations. They are decorative (aria-hidden) and show no customer data. */
 

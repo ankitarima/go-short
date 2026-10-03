@@ -19,7 +19,9 @@ export type ErrorCode =
   | 'LINK_NOT_FOUND'
   | 'DOMAIN_NOT_FOUND'
   | 'DOMAIN_TAKEN'
-  | 'WORKSPACE_NOT_FOUND';
+  | 'WORKSPACE_NOT_FOUND'
+  | 'ACCOUNT_DISABLED'
+  | 'SERVICE_UNAVAILABLE';
 
 const STATUS: Record<ErrorCode, number> = {
   VALIDATION_ERROR: 400,
@@ -28,6 +30,7 @@ const STATUS: Record<ErrorCode, number> = {
   FORBIDDEN: 403,
   CSRF_INVALID: 403,
   FEATURE_DISABLED: 403,
+  ACCOUNT_DISABLED: 403,
   NOT_FOUND: 404,
   LINK_NOT_FOUND: 404,
   DOMAIN_NOT_FOUND: 404,
@@ -43,6 +46,7 @@ const STATUS: Record<ErrorCode, number> = {
   DOMAIN_TAKEN: 409,
   RATE_LIMITED: 429,
   INTERNAL_ERROR: 500,
+  SERVICE_UNAVAILABLE: 503,
 };
 
 export class AppError extends Error {

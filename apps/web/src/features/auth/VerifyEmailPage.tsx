@@ -1,8 +1,8 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
-import { Spinner } from '@/components/ui/skeleton';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
+import { Spinner } from '@go-short/ui/components/skeleton';
 import { ME_KEY } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
 import { AuthLayout } from './AuthLayout';

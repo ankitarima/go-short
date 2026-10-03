@@ -1,10 +1,10 @@
 import { ArrowRight } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Callout } from '@/components/ui/callout';
-import { CopyButton } from '@/components/ui/copy-button';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/cn';
+import { Callout } from '@go-short/ui/components/callout';
+import { CopyButton } from '@go-short/ui/components/copy-button';
+import { Button } from '@go-short/ui/components/button';
+import { cn } from '@go-short/ui/lib/cn';
 import { CodeBlock } from './CodeBlock';
 import { DocsNotFound } from './DocsNotFound';
 import { DocView } from './GuidePage';

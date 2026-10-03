@@ -1,6 +1,6 @@
 import { ChevronRight } from 'lucide-react';
 import { useState } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 import type { Row } from './lib/openapi';
 
 function RowView({ row, depth }: { row: Row; depth: number }) {

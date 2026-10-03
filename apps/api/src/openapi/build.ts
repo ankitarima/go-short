@@ -186,7 +186,9 @@ function buildOp(op: Op, mode: 'session' | 'nested' | 'flat', openApiPath: strin
   const description = [
     op.description,
     permission ? `**Required permission:** \`${permission}\`.` : undefined,
-    op.scope === 'admin' ? '**Requires a system administrator (session only).**' : undefined,
+    op.scope === 'admin'
+      ? '**Requires platform staff (session only): MANAGER reads, ADMIN acts, SUPER_ADMIN manages staff.**'
+      : undefined,
     op.scope === 'session' ? '**Session only:** API keys are refused.' : undefined,
     sessionOnly ? '**Session only:** API keys are refused.' : undefined,
     mode === 'flat' ? 'Flat route: the workspace is the API key’s own workspace.' : undefined,

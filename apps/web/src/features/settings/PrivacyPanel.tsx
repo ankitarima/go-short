@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
 import {
   Card,
   CardContent,
@@ -8,11 +8,11 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Field } from '@/components/ui/field';
-import { NativeSelect } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Switch } from '@/components/ui/switch';
+} from '@go-short/ui/components/card';
+import { Field } from '@go-short/ui/components/field';
+import { NativeSelect } from '@go-short/ui/components/input';
+import { Skeleton } from '@go-short/ui/components/skeleton';
+import { Switch } from '@go-short/ui/components/switch';
 import { useWorkspace } from '@/hooks/useAuth';
 import { useUpdateWorkspace, useWorkspaceSettings } from './useWorkspaceSettings';
 

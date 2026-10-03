@@ -1,11 +1,12 @@
 import { AppError, CLEANUP_TASKS, type CleanupTask } from '@go-short/shared';
-import { adminListQuery, adminUpdateUserSchema } from '@go-short/validation';
+import { adminListQuery } from '@go-short/validation';
 import type { Prisma } from '@go-short/database';
 import { Router } from 'express';
 import { z } from 'zod';
 import type { AppContext } from '../context';
-import { requireAuth, requireSystemAdmin } from '../middleware/auth';
+import { requireAuth, requirePlatform } from '../middleware/auth';
 import { audit } from '../services/audit';
+import { registerPlatformRoutes } from './adminPlatform';
 
 /** Prisma's `contains` does not escape LIKE wildcards. */
 const escapeLike = (v: string) => v.replace(/[\\%_]/g, '\\$&');
@@ -14,7 +15,8 @@ type QueueName = 'analytics' | 'cleanup' | 'webhooks';
 const QUEUE_NAMES: readonly QueueName[] = ['analytics', 'cleanup', 'webhooks'];
 
 /**
- * Platform operator area. Session-only (API keys never reach it) and restricted to systemRole ADMIN.
+ * Platform console API. Session-only (API keys never reach it). Roles: MANAGER can read everything,
+ * ADMIN can also act (suspend users, retry jobs, run cleanups), SUPER_ADMIN also manages staff.
  * Every response is built from explicit field lists, so password hashes, session/reset tokens, API
  * key hashes and webhook secrets can never leak, and analytics job payloads (which contain raw IPs)
  * are summarized rather than returned.
@@ -22,7 +24,8 @@ const QUEUE_NAMES: readonly QueueName[] = ['analytics', 'cleanup', 'webhooks'];
 export function adminRouter(ctx: AppContext): Router {
   const r = Router();
   const { prisma } = ctx;
-  r.use(requireAuth, requireSystemAdmin);
+  r.use(requireAuth, requirePlatform('MANAGER'));
+  const act = requirePlatform('ADMIN');
 
   const page = <T extends { id: string }>(rows: T[], limit: number) => ({
     data: rows.slice(0, limit),
@@ -95,6 +98,7 @@ export function adminRouter(ctx: AppContext): Router {
         name: true,
         emailVerified: true,
         systemRole: true,
+        disabledAt: true,
         createdAt: true,
         _count: { select: { memberships: true } },
       },
@@ -108,38 +112,6 @@ export function adminRouter(ctx: AppContext): Router {
       data: p.data.map(({ _count, ...u }) => ({ ...u, workspaceCount: _count.memberships })),
       nextCursor: p.nextCursor,
     });
-  });
-
-  r.patch('/users/:userId', async (req, res) => {
-    const id = z.string().parse(req.params.userId);
-    const { systemRole } = adminUpdateUserSchema.parse(req.body);
-    if (id === req.auth!.user.id)
-      throw new AppError('FORBIDDEN', 'You cannot change your own system role');
-    const target = await prisma.user.findUnique({
-      where: { id },
-      select: { id: true, email: true, systemRole: true },
-    });
-    if (!target) throw new AppError('NOT_FOUND', 'User not found');
-    if (
-      target.systemRole === 'ADMIN' &&
-      systemRole === 'USER' &&
-      (await prisma.user.count({ where: { systemRole: 'ADMIN' } })) <= 1
-    ) {
-      throw new AppError('CONFLICT', 'There must be at least one system administrator');
-    }
-    const u = await prisma.user.update({
-      where: { id },
-      data: { systemRole },
-      select: { id: true, email: true, systemRole: true },
-    });
-    await audit(ctx, {
-      userId: req.auth!.user.id,
-      action: 'ADMIN_USER_ROLE_CHANGED',
-      resourceType: 'user',
-      resourceId: id,
-      metadata: { from: target.systemRole, to: systemRole },
-    });
-    res.json({ success: true, data: u });
   });
 
   r.get('/workspaces', async (req, res) => {
@@ -258,13 +230,26 @@ export function adminRouter(ctx: AppContext): Router {
       where: {
         ...(q.workspaceId ? { workspaceId: q.workspaceId } : {}),
         ...(q.action ? { action: q.action } : {}),
+        ...(q.q
+          ? {
+              OR: [
+                { action: { contains: escapeLike(q.q), mode: 'insensitive' } },
+                { user: { email: { contains: escapeLike(q.q), mode: 'insensitive' } } },
+              ],
+            }
+          : {}),
       },
+      include: { user: { select: { email: true, name: true } } },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: q.limit + 1,
       ...cursorArgs(q.cursor),
     });
     const p = page(rows, q.limit);
-    res.json({ success: true, data: p.data, nextCursor: p.nextCursor });
+    res.json({
+      success: true,
+      data: p.data.map(({ user, ...l }) => ({ ...l, actor: user })),
+      nextCursor: p.nextCursor,
+    });
   });
 
   // ---- queues and failed jobs (the dead-letter view) ------------------------------------------
@@ -306,7 +291,7 @@ export function adminRouter(ctx: AppContext): Router {
     });
   });
 
-  r.post('/queues/:queue/failed/:jobId/retry', async (req, res) => {
+  r.post('/queues/:queue/failed/:jobId/retry', act, async (req, res) => {
     const name = queueParam(req.params.queue);
     const job = await ctx.queues[name].getJob(z.string().parse(req.params.jobId));
     if (!job || !(await job.isFailed())) throw new AppError('NOT_FOUND', 'Failed job not found');
@@ -321,7 +306,7 @@ export function adminRouter(ctx: AppContext): Router {
     res.json({ success: true, data: {} });
   });
 
-  r.delete('/queues/:queue/failed/:jobId', async (req, res) => {
+  r.delete('/queues/:queue/failed/:jobId', act, async (req, res) => {
     const name = queueParam(req.params.queue);
     const job = await ctx.queues[name].getJob(z.string().parse(req.params.jobId));
     if (!job || !(await job.isFailed())) throw new AppError('NOT_FOUND', 'Failed job not found');
@@ -336,7 +321,7 @@ export function adminRouter(ctx: AppContext): Router {
     res.json({ success: true, data: {} });
   });
 
-  r.post('/cleanup/:task/run', async (req, res) => {
+  r.post('/cleanup/:task/run', act, async (req, res) => {
     const task = z.enum(CLEANUP_TASKS).safeParse(req.params.task);
     if (!task.success) throw new AppError('NOT_FOUND', 'Unknown cleanup task');
     const t: CleanupTask = task.data;
@@ -354,5 +339,6 @@ export function adminRouter(ctx: AppContext): Router {
     res.status(202).json({ success: true, data: { task: t } });
   });
 
+  registerPlatformRoutes(r, ctx);
   return r;
 }

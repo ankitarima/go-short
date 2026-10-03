@@ -3,7 +3,7 @@ import { Children, isValidElement, type ReactNode } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import { Link } from 'react-router-dom';
 import remarkGfm from 'remark-gfm';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 import { CodeBlock } from './CodeBlock';
 import { slugify, uniqueId } from './lib/content';
 

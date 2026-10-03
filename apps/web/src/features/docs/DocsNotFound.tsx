@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { Button } from '@go-short/ui/components/button';
 
 export function DocsNotFound() {
   return (

@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '../lib/cn';
 
 export const Card = ({ className, ...p }: ComponentProps<'div'>) => (
   <div className={cn('rounded-xl border border-border bg-background', className)} {...p} />

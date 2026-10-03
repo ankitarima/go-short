@@ -1,4 +1,4 @@
-import { PageHeader } from '@/components/ui/page-header';
+import { PageHeader } from '@go-short/ui/components/page-header';
 import { AnalyticsView } from './AnalyticsView';
 
 export function AnalyticsPage() {

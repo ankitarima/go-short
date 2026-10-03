@@ -1,7 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { LogOut, Settings, Shield, User } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { Avatar } from '@/components/ui/avatar';
+import { Avatar } from '@go-short/ui/components/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +9,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@go-short/ui/components/dropdown-menu';
 import { useWorkspace } from '@/hooks/useAuth';
 import { api, setCsrfToken } from '@/lib/api';
 

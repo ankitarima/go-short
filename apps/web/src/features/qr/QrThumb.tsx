@@ -1,6 +1,6 @@
 import { useWorkspace, wsPath } from '@/hooks/useAuth';
 import { apiUrl } from '@/lib/api';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 import type { Qr } from '@/types/api';
 
 /** Saved QR code image, rendered by the API on demand (cookie-authenticated, same origin). */

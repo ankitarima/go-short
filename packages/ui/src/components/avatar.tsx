@@ -1,4 +1,4 @@
-import { cn } from '@/lib/cn';
+import { cn } from '../lib/cn';
 
 /** Deterministic gradient from a string, in the spirit of Vercel's generated avatars. */
 function gradient(seed: string): string {

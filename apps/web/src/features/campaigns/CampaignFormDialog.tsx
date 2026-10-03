@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
 import {
   Dialog,
   DialogBody,
@@ -11,9 +11,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Field } from '@/components/ui/field';
-import { Input, Textarea } from '@/components/ui/input';
+} from '@go-short/ui/components/dialog';
+import { Field } from '@go-short/ui/components/field';
+import { Input, Textarea } from '@go-short/ui/components/input';
 import { useWorkspace, wsKey, wsPath } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
 import type { Campaign } from '@/types/api';

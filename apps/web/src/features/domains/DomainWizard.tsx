@@ -2,9 +2,9 @@ import { useMutation } from '@tanstack/react-query';
 import { Check, Loader2 } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
-import { CodeValue } from '@/components/ui/copy-button';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
+import { CodeValue } from '@go-short/ui/components/copy-button';
 import {
   Dialog,
   DialogBody,
@@ -13,12 +13,12 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+} from '@go-short/ui/components/dialog';
+import { Field } from '@go-short/ui/components/field';
+import { Input } from '@go-short/ui/components/input';
 import { useWorkspace, wsPath } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 import type { Domain, DomainVerification } from '@/types/api';
 
 const STEPS = ['Domain', 'DNS', 'Verify', 'HTTPS', 'Ready'] as const;

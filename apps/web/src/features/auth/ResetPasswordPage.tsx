@@ -1,10 +1,10 @@
 import { useMutation } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
+import { Field } from '@go-short/ui/components/field';
+import { Input } from '@go-short/ui/components/input';
 import { ApiError, api } from '@/lib/api';
 import { AuthLayout } from './AuthLayout';
 

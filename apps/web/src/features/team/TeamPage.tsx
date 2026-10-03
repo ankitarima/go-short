@@ -2,11 +2,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { MoreHorizontal, Trash2, UserPlus } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
-import { Avatar } from '@/components/ui/avatar';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
-import { Card } from '@/components/ui/card';
+import { Avatar } from '@go-short/ui/components/avatar';
+import { Badge } from '@go-short/ui/components/badge';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
+import { Card } from '@go-short/ui/components/card';
 import {
   ConfirmDialog,
   Dialog,
@@ -16,21 +16,21 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
+} from '@go-short/ui/components/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Field } from '@/components/ui/field';
-import { Input, NativeSelect } from '@/components/ui/input';
-import { PageHeader } from '@/components/ui/page-header';
-import { ErrorState, TableSkeleton } from '@/components/ui/states';
-import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/table';
+} from '@go-short/ui/components/dropdown-menu';
+import { Field } from '@go-short/ui/components/field';
+import { Input, NativeSelect } from '@go-short/ui/components/input';
+import { PageHeader } from '@go-short/ui/components/page-header';
+import { ErrorState, TableSkeleton } from '@go-short/ui/components/states';
+import { Table, TBody, TD, TH, THead, TR } from '@go-short/ui/components/table';
 import { useWorkspace, wsKey, wsPath } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
-import { ROLE_LABEL, formatDate } from '@/lib/format';
+import { ROLE_LABEL, formatDate } from '@go-short/ui/lib/format';
 import type { Member, Role } from '@/types/api';
 
 const ROLES: Role[] = ['OWNER', 'ADMIN', 'MEMBER', 'VIEWER'];

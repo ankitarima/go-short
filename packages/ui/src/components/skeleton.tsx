@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '../lib/cn';
 
 export const Skeleton = ({ className, ...p }: ComponentProps<'div'>) => (
   <div aria-hidden className={cn('skeleton rounded-md', className)} {...p} />

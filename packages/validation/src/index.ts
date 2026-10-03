@@ -264,7 +264,22 @@ export const adminListQuery = cursorQuery.extend({
   status: z.enum(['PENDING', 'VERIFIED', 'DISABLED']).optional(),
   action: z.string().trim().max(60).optional(),
 });
-export const adminUpdateUserSchema = z.object({ systemRole: z.enum(['USER', 'ADMIN']) });
+export const staffRoleSchema = z.enum(['MANAGER', 'ADMIN', 'SUPER_ADMIN']);
+export const addStaffSchema = z.object({
+  email: z.string().trim().toLowerCase().email().max(254),
+  role: staffRoleSchema,
+});
+export const updateStaffSchema = z.object({ role: staffRoleSchema });
+export const teamsQuery = adminListQuery.extend({
+  role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']).optional(),
+});
+export const usageQuery = z.object({
+  days: z.coerce.number().int().min(7).max(90).default(30),
+});
+export const monitoringRangeQuery = z.object({
+  query: z.string().trim().min(1).max(60),
+  minutes: z.coerce.number().int().min(5).max(1440).default(60),
+});
 
 export const previewQrSchema = z.object({
   /** Optional: when given, the preview encodes that link's real short URL. */

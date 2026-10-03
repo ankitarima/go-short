@@ -2,9 +2,9 @@ import { ArrowRight, Check, Plus } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
+import { Button } from '@go-short/ui/components/button';
 import { useMeQuery } from '@/hooks/useAuth';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 import { ACCENT, type Accent } from './data';
 
 export const Container = ({ children, className }: { children: ReactNode; className?: string }) => (

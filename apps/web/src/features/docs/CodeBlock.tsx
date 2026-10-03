@@ -4,8 +4,8 @@ import javascript from 'highlight.js/lib/languages/javascript';
 import json from 'highlight.js/lib/languages/json';
 import python from 'highlight.js/lib/languages/python';
 import { useMemo } from 'react';
-import { CopyButton } from '@/components/ui/copy-button';
-import { cn } from '@/lib/cn';
+import { CopyButton } from '@go-short/ui/components/copy-button';
+import { cn } from '@go-short/ui/lib/cn';
 
 hljs.registerLanguage('bash', bash);
 hljs.registerLanguage('javascript', javascript);

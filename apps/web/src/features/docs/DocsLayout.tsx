@@ -3,9 +3,9 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { Logo } from '@/components/layout/Logo';
 import { ThemeToggle } from '@/components/layout/ThemeToggle';
-import { Button } from '@/components/ui/button';
+import { Button } from '@go-short/ui/components/button';
 import { useMeQuery } from '@/hooks/useAuth';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 import { DocsSidebar } from './DocsSidebar';
 import { SearchDialog } from './SearchDialog';
 

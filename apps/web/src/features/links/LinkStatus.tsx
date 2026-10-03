@@ -1,5 +1,5 @@
 import { Lock } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@go-short/ui/components/badge';
 import type { Link } from '@/types/api';
 
 /** One-glance status: Active / Disabled / Expired, plus a lock when password protected. */

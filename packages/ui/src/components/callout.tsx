@@ -1,6 +1,6 @@
 import { AlertTriangle, Info, ShieldAlert } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '../lib/cn';
 
 const tones = {
   info: { icon: Info, cls: 'border-blue/30 bg-blue-soft text-foreground', ic: 'text-blue' },

@@ -8,9 +8,9 @@ import {
   useLocation,
 } from 'react-router-dom';
 import { Layout } from '@/components/layout/Layout';
-import { Spinner } from '@/components/ui/skeleton';
+import { Spinner } from '@go-short/ui/components/skeleton';
 import { Toaster } from '@/components/ui/toaster';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import { TooltipProvider } from '@go-short/ui/components/tooltip';
 import { AcceptInvitePage } from '@/features/auth/AcceptInvitePage';
 import { ForgotPasswordPage } from '@/features/auth/ForgotPasswordPage';
 import { LoginPage } from '@/features/auth/LoginPage';

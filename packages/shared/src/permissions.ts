@@ -72,3 +72,29 @@ export function canAssignRole(actor: WorkspaceRole, target: WorkspaceRole): bool
   if (target === 'OWNER') return actor === 'OWNER';
   return RANK[actor] >= RANK[target];
 }
+
+// ---- platform (console) roles ---------------------------------------------------------------------
+// Separate from workspace roles: these decide what a person may do across the WHOLE installation.
+
+export const PLATFORM_ROLES = ['USER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN'] as const;
+export type PlatformRole = (typeof PLATFORM_ROLES)[number];
+export const STAFF_ROLES = ['MANAGER', 'ADMIN', 'SUPER_ADMIN'] as const;
+export type StaffRole = (typeof STAFF_ROLES)[number];
+
+const PLATFORM_RANK: Record<PlatformRole, number> = {
+  USER: 0,
+  MANAGER: 1,
+  ADMIN: 2,
+  SUPER_ADMIN: 3,
+};
+
+/** True when `role` is at least `min`. USER never passes a staff check. */
+export const platformAtLeast = (role: PlatformRole, min: StaffRole): boolean =>
+  PLATFORM_RANK[role] >= PLATFORM_RANK[min];
+
+/** What each staff role may do in the console (the UI hides what the API would refuse). */
+export const PLATFORM_CAPABILITIES: Record<StaffRole, readonly string[]> = {
+  MANAGER: ['console:read'],
+  ADMIN: ['console:read', 'users:manage', 'queues:manage', 'cleanup:run'],
+  SUPER_ADMIN: ['console:read', 'users:manage', 'queues:manage', 'cleanup:run', 'staff:manage'],
+};

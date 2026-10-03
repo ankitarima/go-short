@@ -525,7 +525,7 @@ describe('responses conform to the documented schemas', () => {
     // admin
     await ctx.prisma.user.updateMany({
       where: { email: 'doc@example.com' },
-      data: { systemRole: 'ADMIN' },
+      data: { systemRole: 'SUPER_ADMIN' },
     });
     const admin = request.agent(app);
     await admin
@@ -540,9 +540,68 @@ describe('responses conform to the documented schemas', () => {
       ['/audit-logs', '/api/v1/admin/audit-logs'],
       ['/queues', '/api/v1/admin/queues'],
       ['/queues/analytics/failed', '/api/v1/admin/queues/{queue}/failed'],
+      ['/me', '/api/v1/admin/me'],
+      ['/usage?days=7', '/api/v1/admin/usage'],
+      ['/teams', '/api/v1/admin/teams'],
+      ['/staff', '/api/v1/admin/staff'],
+      ['/monitoring', '/api/v1/admin/monitoring'],
     ] as const) {
       conforms('get', tmpl, 200, (await admin.get(`/api/v1/admin${p}`)).body);
     }
+    const adminCsrf = (await admin.get('/api/v1/me')).body.data.csrfToken as string;
+    const aUser = await ctx.prisma.user.findFirstOrThrow({ where: { email: 'doc@example.com' } });
+    const aWs = await ctx.prisma.workspace.findFirstOrThrow();
+    conforms(
+      'get',
+      '/api/v1/admin/users/{userId}',
+      200,
+      (await admin.get(`/api/v1/admin/users/${aUser.id}`)).body,
+    );
+    conforms(
+      'get',
+      '/api/v1/admin/workspaces/{workspaceId}',
+      200,
+      (await admin.get(`/api/v1/admin/workspaces/${aWs.id}`)).body,
+    );
+    const other = await ctx.prisma.user.create({
+      data: { email: 'staff-doc@example.com', name: 'S', passwordHash: 'x' },
+    });
+    const added = await admin
+      .post('/api/v1/admin/staff')
+      .set('X-CSRF-Token', adminCsrf)
+      .send({ email: other.email, role: 'MANAGER' });
+    conforms('post', '/api/v1/admin/staff', 201, added.body);
+    conforms(
+      'patch',
+      '/api/v1/admin/staff/{userId}',
+      200,
+      (
+        await admin
+          .patch(`/api/v1/admin/staff/${other.id}`)
+          .set('X-CSRF-Token', adminCsrf)
+          .send({ role: 'ADMIN' })
+      ).body,
+    );
+    conforms(
+      'post',
+      '/api/v1/admin/users/{userId}/disable',
+      200,
+      (await admin.post(`/api/v1/admin/users/${other.id}/disable`).set('X-CSRF-Token', adminCsrf))
+        .body,
+    );
+    conforms(
+      'post',
+      '/api/v1/admin/users/{userId}/enable',
+      200,
+      (await admin.post(`/api/v1/admin/users/${other.id}/enable`).set('X-CSRF-Token', adminCsrf))
+        .body,
+    );
+    conforms(
+      'delete',
+      '/api/v1/admin/staff/{userId}',
+      200,
+      (await admin.delete(`/api/v1/admin/staff/${other.id}`).set('X-CSRF-Token', adminCsrf)).body,
+    );
 
     // deletes and error envelopes
     conforms('delete', `${W}/links/{linkId}`, 200, (await s.del(`${base}/links/${lid}`)).body);

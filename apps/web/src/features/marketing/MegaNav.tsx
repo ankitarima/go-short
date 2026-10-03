@@ -2,7 +2,7 @@ import * as NavigationMenu from '@radix-ui/react-navigation-menu';
 import { ChevronDown, ArrowRight } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 import {
   ACCENT,
   PLATFORM,

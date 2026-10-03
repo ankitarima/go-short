@@ -1,6 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
-import { PageHeader } from '@/components/ui/page-header';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { PageHeader } from '@go-short/ui/components/page-header';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@go-short/ui/components/tabs';
 import { useWorkspace } from '@/hooks/useAuth';
 import { AuditLogPanel } from './AuditLogPanel';
 import { GeneralPanel } from './GeneralPanel';

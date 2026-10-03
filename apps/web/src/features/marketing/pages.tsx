@@ -1,7 +1,7 @@
 import { ArrowRight, Check } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 import { CodeBlock } from '@/features/docs/CodeBlock';
 import { NotFoundPage } from '@/features/NotFoundPage';
 import { ACCENT, PRODUCTS, SOLUTIONS, productHref, solutionHref } from './data';

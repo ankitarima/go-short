@@ -3,27 +3,34 @@ import { Bot, Download, MousePointerClick, QrCode, Users } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 import { BreakdownList, type BreakdownItem } from '@/components/charts/BreakdownList';
 import { TimelineChart } from '@/components/charts/TimelineChart';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Disclosure } from '@/components/ui/collapsible';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
+import { Card, CardContent, CardHeader, CardTitle } from '@go-short/ui/components/card';
+import { Disclosure } from '@go-short/ui/components/collapsible';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Field } from '@/components/ui/field';
-import { Input, NativeSelect } from '@/components/ui/input';
-import { Segmented } from '@/components/ui/segmented';
-import { Skeleton } from '@/components/ui/skeleton';
-import { StatCard } from '@/components/ui/stat-card';
-import { ErrorState } from '@/components/ui/states';
-import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+} from '@go-short/ui/components/dropdown-menu';
+import { Field } from '@go-short/ui/components/field';
+import { Input, NativeSelect } from '@go-short/ui/components/input';
+import { Segmented } from '@go-short/ui/components/segmented';
+import { Skeleton } from '@go-short/ui/components/skeleton';
+import { StatCard } from '@go-short/ui/components/stat-card';
+import { ErrorState } from '@go-short/ui/components/states';
+import { Switch } from '@go-short/ui/components/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@go-short/ui/components/tabs';
 import { atLeast, useWorkspace, wsKey, wsPath } from '@/hooks/useAuth';
 import { apiPage, apiUrl } from '@/lib/api';
-import { countryFlag, countryName, daysAgo, formatNumber, isoDay, titleCase } from '@/lib/format';
+import {
+  countryFlag,
+  countryName,
+  daysAgo,
+  formatNumber,
+  isoDay,
+  titleCase,
+} from '@go-short/ui/lib/format';
 import type { BreakdownRow, Campaign, Link as LinkT } from '@/types/api';
 import { type AnalyticsFilters, analyticsPath, useAnalytics } from './useAnalytics';
 

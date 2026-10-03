@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '@go-short/ui/lib/cn';
 import type { Heading } from './lib/content';
 
 /** "On this page": highlights the section currently in view. */

@@ -1,5 +1,5 @@
 import type { ComponentProps } from 'react';
-import { cn } from '@/lib/cn';
+import { cn } from '../lib/cn';
 
 /** Hairline-only tables: no zebra stripes, a quiet header, rows highlight on hover. */
 export const Table = ({ className, ...p }: ComponentProps<'table'>) => (

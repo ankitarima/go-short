@@ -1,8 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
 import {
   Card,
   CardContent,
@@ -10,9 +10,9 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+} from '@go-short/ui/components/card';
+import { Field } from '@go-short/ui/components/field';
+import { Input } from '@go-short/ui/components/input';
 import { useWorkspace } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
 

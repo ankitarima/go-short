@@ -3,18 +3,18 @@ import { Activity, Database, Globe, Link2, Megaphone, QrCode, Users } from 'luci
 import { useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PageHeader } from '@/components/ui/page-header';
-import { NativeSelect } from '@/components/ui/input';
-import { StatCard } from '@/components/ui/stat-card';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/states';
-import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@go-short/ui/components/badge';
+import { Button } from '@go-short/ui/components/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@go-short/ui/components/card';
+import { PageHeader } from '@go-short/ui/components/page-header';
+import { NativeSelect } from '@go-short/ui/components/input';
+import { StatCard } from '@go-short/ui/components/stat-card';
+import { EmptyState, ErrorState, TableSkeleton } from '@go-short/ui/components/states';
+import { Table, TBody, TD, TH, THead, TR } from '@go-short/ui/components/table';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@go-short/ui/components/tabs';
 import { useWorkspace } from '@/hooks/useAuth';
 import { ApiError, api, apiPage } from '@/lib/api';
-import { formatDate, formatDateTime, formatNumber } from '@/lib/format';
+import { formatDate, formatDateTime, formatNumber } from '@go-short/ui/lib/format';
 import type { AdminStats, AdminUser, AdminWorkspace, FailedJob } from '@/types/api';
 
 const fail = (e: unknown) =>

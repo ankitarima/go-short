@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Button } from '@go-short/ui/components/button';
 import {
   Dialog,
   DialogBody,
@@ -11,9 +11,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Field } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+} from '@go-short/ui/components/dialog';
+import { Field } from '@go-short/ui/components/field';
+import { Input } from '@go-short/ui/components/input';
 import { ME_KEY } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
 import { useUi } from '@/stores/ui';

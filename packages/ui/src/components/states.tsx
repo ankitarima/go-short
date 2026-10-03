@@ -1,7 +1,6 @@
 import { AlertCircle, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { ApiError } from '@/lib/api';
-import { cn } from '@/lib/cn';
+import { cn } from '../lib/cn';
 import { Button } from './button';
 import { Skeleton } from './skeleton';
 
@@ -47,9 +46,13 @@ export function ErrorState({
   onRetry?: () => void;
   className?: string;
 }) {
-  const message =
-    error instanceof ApiError ? error.message : 'Something went wrong while loading this.';
-  const requestId = error instanceof ApiError ? error.requestId : undefined;
+  // Duck-typed so the design system does not depend on any app's API client: an error with a
+  // message (and optionally a requestId) is shown; anything else gets the generic text.
+  const e = error as { message?: unknown; requestId?: unknown; name?: unknown } | null;
+  const known =
+    typeof e === 'object' && e !== null && e.name === 'ApiError' && typeof e.message === 'string';
+  const message = known ? (e!.message as string) : 'Something went wrong while loading this.';
+  const requestId = known && typeof e!.requestId === 'string' ? e!.requestId : undefined;
   return (
     <div
       role="alert"

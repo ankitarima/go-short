@@ -1,12 +1,12 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { ScrollText } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { EmptyState, ErrorState, TableSkeleton } from '@/components/ui/states';
-import { Table, TBody, TD, TH, THead, TR } from '@/components/ui/table';
+import { Button } from '@go-short/ui/components/button';
+import { Card } from '@go-short/ui/components/card';
+import { EmptyState, ErrorState, TableSkeleton } from '@go-short/ui/components/states';
+import { Table, TBody, TD, TH, THead, TR } from '@go-short/ui/components/table';
 import { useWorkspace, wsKey, wsPath } from '@/hooks/useAuth';
 import { apiPage } from '@/lib/api';
-import { formatDateTime } from '@/lib/format';
+import { formatDateTime } from '@go-short/ui/lib/format';
 import type { AuditLog } from '@/types/api';
 
 const human = (a: string) => a.toLowerCase().replace(/_/g, ' ');

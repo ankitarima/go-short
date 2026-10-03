@@ -88,6 +88,20 @@ const schema = z
     METRICS_HOST: z.string().min(1).default('127.0.0.1'),
     /** Optional bearer token required to scrape metrics. Required in production when METRICS_HOST is not loopback. */
     METRICS_TOKEN: z.string().min(16).optional(),
+    /** Console: where the API reads platform metrics from (Prometheus base URL, internal). Unset = no live metrics. */
+    PROMETHEUS_URL: z
+      .union([z.url(), z.literal('')])
+      .optional()
+      .transform((v) => v || undefined),
+    /** Console: public links shown to platform staff (opened in a new tab). */
+    CONSOLE_GRAFANA_URL: z
+      .union([z.url(), z.literal('')])
+      .optional()
+      .transform((v) => v || undefined),
+    CONSOLE_PROMETHEUS_URL: z
+      .union([z.url(), z.literal('')])
+      .optional()
+      .transform((v) => v || undefined),
     API_METRICS_PORT: z.coerce.number().int().min(1).max(65535).default(9101),
     REDIRECT_METRICS_PORT: z.coerce.number().int().min(1).max(65535).default(9102),
     WORKER_METRICS_PORT: z.coerce.number().int().min(1).max(65535).default(9103),

@@ -20,9 +20,13 @@ enum DomainStatus {
   DISABLED
 }
 
+/// Platform-level role (the console). USER = ordinary account; MANAGER = read-only monitoring;
+/// ADMIN = manage users and workspaces; SUPER_ADMIN = everything, including who else is staff.
 enum SystemRole {
   USER
+  MANAGER
   ADMIN
+  SUPER_ADMIN
 }
 
 enum DeviceType {
@@ -65,6 +69,8 @@ model User {
   passwordHash  String
   emailVerified Boolean    @default(false)
   systemRole    SystemRole @default(USER)
+  /// Set when a platform admin suspends the account: no sign-in, no sessions, no API keys.
+  disabledAt    DateTime?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 

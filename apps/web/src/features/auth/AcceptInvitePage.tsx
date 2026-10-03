@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
-import { Callout } from '@/components/ui/callout';
+import { Button } from '@go-short/ui/components/button';
+import { Callout } from '@go-short/ui/components/callout';
 import { ME_KEY, useMeQuery } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
 import { useUi } from '@/stores/ui';

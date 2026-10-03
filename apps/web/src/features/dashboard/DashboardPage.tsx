@@ -13,13 +13,13 @@ import {
 import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { TimelineChart } from '@/components/charts/TimelineChart';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PageHeader } from '@/components/ui/page-header';
-import { Skeleton } from '@/components/ui/skeleton';
-import { StatCard } from '@/components/ui/stat-card';
-import { ErrorState } from '@/components/ui/states';
+import { Badge } from '@go-short/ui/components/badge';
+import { Button } from '@go-short/ui/components/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@go-short/ui/components/card';
+import { PageHeader } from '@go-short/ui/components/page-header';
+import { Skeleton } from '@go-short/ui/components/skeleton';
+import { StatCard } from '@go-short/ui/components/stat-card';
+import { ErrorState } from '@go-short/ui/components/states';
 import { useAnalytics } from '@/features/analytics/useAnalytics';
 import { campaignPhase } from '@/features/campaigns/hooks';
 import { CampaignFormDialog } from '@/features/campaigns/CampaignFormDialog';
@@ -27,7 +27,14 @@ import { LinkFormDialog } from '@/features/links/LinkFormDialog';
 import { LinkStatus } from '@/features/links/LinkStatus';
 import { useWorkspace, wsKey, wsPath } from '@/hooks/useAuth';
 import { api, apiPage } from '@/lib/api';
-import { daysAgo, displayUrl, formatNumber, formatRelative, isoDay, plural } from '@/lib/format';
+import {
+  daysAgo,
+  displayUrl,
+  formatNumber,
+  formatRelative,
+  isoDay,
+  plural,
+} from '@go-short/ui/lib/format';
 import type { Campaign, Link as LinkT, Overview } from '@/types/api';
 
 export function DashboardPage() {

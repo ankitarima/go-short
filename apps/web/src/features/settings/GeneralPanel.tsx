@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { Button } from '@/components/ui/button';
+import { Button } from '@go-short/ui/components/button';
 import {
   Card,
   CardContent,
@@ -10,11 +10,11 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@/components/ui/card';
-import { ConfirmDialog } from '@/components/ui/dialog';
-import { Field } from '@/components/ui/field';
-import { Input, NativeSelect } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
+} from '@go-short/ui/components/card';
+import { ConfirmDialog } from '@go-short/ui/components/dialog';
+import { Field } from '@go-short/ui/components/field';
+import { Input, NativeSelect } from '@go-short/ui/components/input';
+import { Skeleton } from '@go-short/ui/components/skeleton';
 import { ME_KEY, useWorkspace, wsPath } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
 import { useUi } from '@/stores/ui';
