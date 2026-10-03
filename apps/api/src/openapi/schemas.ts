@@ -471,6 +471,8 @@ export const paged = (item: S): S => ({
     success: { const: true },
     data: { type: 'array', items: item },
     nextCursor: nullable(str()),
+    /** Present on lists where counting is cheap (users, workspaces, teams). */
+    total: { type: 'integer', minimum: 0 },
   },
   required: ['success', 'data', 'nextCursor'],
   additionalProperties: false,

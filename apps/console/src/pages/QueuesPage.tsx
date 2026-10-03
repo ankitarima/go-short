@@ -11,7 +11,9 @@ import { TBody, TD, TH, THead, TR, Table } from '@go-short/ui/components/table';
 import { ApiError, api } from '@/lib/api';
 import { formatDateTime, formatNumber } from '@/lib/format';
 import type { FailedJob } from '@/types';
+import { PagerFooter } from '@/components/bits';
 import { useConsole } from '@/hooks/useConsole';
+import { useClientPaging } from '@/hooks/usePaging';
 
 const QUEUES = ['analytics', 'webhooks', 'cleanup'] as const;
 const TASKS = [
@@ -37,8 +39,9 @@ export function QueuesPage() {
   });
   const failed = useQuery({
     queryKey: ['console', 'failed', queue],
-    queryFn: () => api<FailedJob[]>(`/admin/queues/${queue}/failed`, { query: { limit: 50 } }),
+    queryFn: () => api<FailedJob[]>(`/admin/queues/${queue}/failed`, { query: { limit: 100 } }),
   });
+  const failedPage = useClientPaging(failed.data ?? [], 10);
   const done = () => void qc.invalidateQueries({ queryKey: ['console'] });
   const fail = (e: unknown) =>
     toast.error(e instanceof ApiError ? e.message : 'Something went wrong');
@@ -139,7 +142,7 @@ export function QueuesPage() {
               </TR>
             </THead>
             <TBody>
-              {failed.data?.map((j) => (
+              {failedPage.rows.map((j) => (
                 <TR key={String(j.id)}>
                   <TD>
                     <span className="mono-13">{String(j.id)}</span>
@@ -181,6 +184,7 @@ export function QueuesPage() {
               ))}
             </TBody>
           </Table>
+          <PagerFooter pager={failedPage.pager} />
         </Card>
       )}
 

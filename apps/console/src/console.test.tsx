@@ -117,26 +117,89 @@ describe('overview', () => {
 });
 
 describe('users', () => {
-  it('searches (debounced) and loads more with the cursor', async () => {
+  it('shows customers only (staff have their own page) and searches without a request per keystroke', async () => {
     const seen: URLSearchParams[] = [];
     server.use(
       http.get('/api/v1/admin/users', ({ request }) => {
-        const p = new URL(request.url).searchParams;
-        seen.push(p);
-        if (p.get('cursor') === 'c2')
-          return ok([mkUser({ id: 'u_3', email: 'bob@example.com', name: 'Bob' })], {
-            nextCursor: null,
-          });
-        return ok([mkUser()], { nextCursor: 'c2' });
+        seen.push(new URL(request.url).searchParams);
+        return ok([mkUser()], { nextCursor: null, total: 1 });
       }),
     );
     const { user } = renderConsole('/users');
     expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: 'Load more' }));
-    expect(await screen.findByText('Bob')).toBeInTheDocument();
+    expect(seen[0]!.get('staff')).toBe('exclude');
+    expect(screen.queryByText('Platform role')).not.toBeInTheDocument();
     await user.type(screen.getByLabelText('Search by name or email'), 'grace');
     await waitFor(() => expect(seen.at(-1)!.get('q')).toBe('grace'));
-    expect(seen.some((p) => p.get('q') === 'g')).toBe(false); // debounced: no request per keystroke
+    expect(seen.at(-1)!.get('staff')).toBe('exclude');
+    expect(seen.some((p) => p.get('q') === 'g')).toBe(false); // debounced
+  });
+
+  it('Next fetches the next cursor and Previous returns to the exact earlier page', async () => {
+    const all = Array.from({ length: 30 }, (_, i) =>
+      mkUser({
+        id: `u_${String(i).padStart(2, '0')}`,
+        email: `user${i}@example.com`,
+        name: `User ${i}`,
+      }),
+    );
+    const cursors: Array<string | null> = [];
+    server.use(
+      http.get('/api/v1/admin/users', ({ request }) => {
+        const p = new URL(request.url).searchParams;
+        cursors.push(p.get('cursor'));
+        const start = p.get('cursor') ? Number(p.get('cursor')) : 0;
+        const size = Number(p.get('limit'));
+        return ok(all.slice(start, start + size), {
+          nextCursor: start + size < all.length ? String(start + size) : null,
+          total: all.length,
+        });
+      }),
+    );
+    const { user } = renderConsole('/users');
+    await user.selectOptions(await screen.findByLabelText('Rows per page'), '10');
+    await screen.findByText('User 0');
+    expect(screen.getByText(/Showing/)).toHaveTextContent('Showing 1–10 of 30');
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await screen.findByText('User 10')).toBeInTheDocument();
+    expect(screen.getByText(/Showing/)).toHaveTextContent('Showing 11–20 of 30');
+    expect(screen.getByText('Page 2')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await screen.findByText('User 20')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next page' })).toBeDisabled(); // last page
+    await user.click(screen.getByRole('button', { name: 'Previous page' }));
+    expect(await screen.findByText('User 10')).toBeInTheDocument();
+    expect(screen.queryByText('User 20')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Previous page' }));
+    expect(await screen.findByText('User 0')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Previous page' })).toBeDisabled();
+    // a new page size starts again at page 1
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    await screen.findByText('User 10');
+    await user.selectOptions(screen.getByLabelText('Rows per page'), '25');
+    expect(await screen.findByText('User 0')).toBeInTheDocument();
+    expect(screen.getByText('Page 1')).toBeInTheDocument();
+    expect(cursors).toContain('10');
+  });
+
+  it('paginates the in-memory tables too (platform staff, failed jobs)', async () => {
+    asRole('SUPER_ADMIN');
+    server.use(
+      http.get('/api/v1/admin/staff', () =>
+        ok(
+          Array.from({ length: 12 }, (_, i) =>
+            mkStaff({ id: `s_${i}`, email: `staff${i}@example.com`, name: `Staff ${i}` }),
+          ),
+        ),
+      ),
+    );
+    const { user } = renderConsole('/staff');
+    expect(await screen.findByText('Staff 0')).toBeInTheDocument();
+    expect(screen.queryByText('Staff 10')).not.toBeInTheDocument(); // 10 per page
+    expect(screen.getByText(/Showing/)).toHaveTextContent('Showing 1–10 of 12');
+    await user.click(screen.getByRole('button', { name: 'Next page' }));
+    expect(await screen.findByText('Staff 10')).toBeInTheDocument();
+    expect(screen.getByText(/Showing/)).toHaveTextContent('Showing 11–12 of 12');
   });
 
   it('an ADMIN can suspend an account after confirming, and re-enable it', async () => {
@@ -287,7 +350,7 @@ describe('platform staff', () => {
       screen.getByText(/Only a super admin can add, change or remove staff/),
     ).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /add staff/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /Role for/ })).not.toBeInTheDocument();
   });
 });
 

@@ -9,15 +9,15 @@ import { PageHeader } from '@go-short/ui/components/page-header';
 import { TBody, TD, TH, THead, TR, Table } from '@go-short/ui/components/table';
 import { formatDate } from '@/lib/format';
 import type { TeamMember } from '@/types';
-import { LoadMore, RoleBadge, SearchBox } from '@/components/bits';
-import { useCursorList } from '@/hooks/useCursorList';
+import { PagerFooter, RoleBadge, SearchBox } from '@/components/bits';
+import { usePagedList } from '@/hooks/usePaging';
 import { useDebounced } from '@/hooks/useDebounced';
 
 export function TeamsPage() {
   const [q, setQ] = useState('');
   const [role, setRole] = useState('');
   const dq = useDebounced(q.trim());
-  const list = useCursorList<TeamMember>('/admin/teams', {
+  const { rows, pager, query } = usePagedList<TeamMember>('/admin/teams', {
     q: dq || undefined,
     role: role || undefined,
   });
@@ -43,13 +43,13 @@ export function TeamsPage() {
           ))}
         </NativeSelect>
       </div>
-      {list.isError ? (
-        <ErrorState error={list.error} onRetry={() => void list.refetch()} />
-      ) : list.isPending ? (
+      {query.isError ? (
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+      ) : query.isPending ? (
         <Card>
           <TableSkeleton rows={6} cols={4} />
         </Card>
-      ) : list.rows.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={UsersRound}
           title="No memberships found"
@@ -67,7 +67,7 @@ export function TeamsPage() {
               </TR>
             </THead>
             <TBody>
-              {list.rows.map((m) => (
+              {rows.map((m) => (
                 <TR key={m.id}>
                   <TD>
                     <span className="block font-medium">{m.user.name}</span>
@@ -96,11 +96,7 @@ export function TeamsPage() {
               ))}
             </TBody>
           </Table>
-          <LoadMore
-            hasNext={!!list.hasNextPage}
-            loading={list.isFetchingNextPage}
-            onClick={() => void list.fetchNextPage()}
-          />
+          <PagerFooter pager={pager} />
         </Card>
       )}
     </>

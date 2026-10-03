@@ -57,4 +57,4 @@ Grafana and Prometheus are not published by the production compose file; reach t
 
 ## Development
 
-`npm run dev` starts the console on http://localhost:5174/console/ together with everything else (API on :4000, web on :5173). It proxies `/api` to the API, and the session cookie is shared with the web app on localhost. Tests: `npm test --workspace @go-short/console` (MSW, real routes, role-based UI).
+`npm run dev` starts everything, and **the whole product is on one address: http://localhost:5173** (the app at `/`, the console at `/console/`), exactly like production behind Caddy. The web dev server proxies `/api` to the API and `/console` to the console's own dev server, which listens on an internal port (5174) that you never need to open. The session cookie is shared because it is one origin. Tests: `npm test --workspace @go-short/console` (MSW, real routes, role-based UI).

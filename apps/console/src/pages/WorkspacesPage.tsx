@@ -11,27 +11,29 @@ import { TBody, TD, TH, THead, TR, Table } from '@go-short/ui/components/table';
 import { api } from '@/lib/api';
 import { formatDate, formatNumber } from '@/lib/format';
 import type { AdminWorkspace, AdminWorkspaceDetail } from '@/types';
-import { LoadMore, RoleBadge, SearchBox } from '@/components/bits';
-import { useCursorList } from '@/hooks/useCursorList';
+import { PagerFooter, RoleBadge, SearchBox } from '@/components/bits';
+import { usePagedList } from '@/hooks/usePaging';
 import { useDebounced } from '@/hooks/useDebounced';
 
 export function WorkspacesPage() {
   const [q, setQ] = useState('');
   const dq = useDebounced(q.trim());
-  const list = useCursorList<AdminWorkspace>('/admin/workspaces', { q: dq || undefined });
+  const { rows, pager, query } = usePagedList<AdminWorkspace>('/admin/workspaces', {
+    q: dq || undefined,
+  });
   return (
     <>
       <PageHeader title="Workspaces" description="Every workspace and how much it holds." />
       <div className="mb-4">
         <SearchBox value={q} onChange={setQ} placeholder="Search by name or slug" />
       </div>
-      {list.isError ? (
-        <ErrorState error={list.error} onRetry={() => void list.refetch()} />
-      ) : list.isPending ? (
+      {query.isError ? (
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+      ) : query.isPending ? (
         <Card>
           <TableSkeleton rows={6} cols={5} />
         </Card>
-      ) : list.rows.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={Building2}
           title="No workspaces found"
@@ -51,7 +53,7 @@ export function WorkspacesPage() {
               </TR>
             </THead>
             <TBody>
-              {list.rows.map((w) => (
+              {rows.map((w) => (
                 <TR key={w.id}>
                   <TD>
                     <Link to={`/workspaces/${w.id}`} className="block font-medium hover:underline">
@@ -70,11 +72,7 @@ export function WorkspacesPage() {
               ))}
             </TBody>
           </Table>
-          <LoadMore
-            hasNext={!!list.hasNextPage}
-            loading={list.isFetchingNextPage}
-            onClick={() => void list.fetchNextPage()}
-          />
+          <PagerFooter pager={pager} />
         </Card>
       )}
     </>

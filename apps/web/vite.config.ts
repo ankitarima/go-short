@@ -16,10 +16,17 @@ const proxy = {
   '/ready': api,
 };
 
+// Development only: the console is its own Vite app (port 5174, base /console/). Proxying it here puts
+// the whole product on ONE address, http://localhost:5173 (app at /, console at /console/), exactly
+// like production behind Caddy. `ws` carries hot reload.
+const consoleDev = {
+  '/console': { target: process.env.VITE_CONSOLE_PROXY ?? 'http://localhost:5174', ws: true },
+};
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
-  server: { port: 5173, proxy },
+  server: { port: 5173, proxy: { ...proxy, ...consoleDev } },
   // `npm run preview` serves the production build with the production security headers.
   preview: { port: 4173, proxy, headers: SECURITY_HEADERS },
   build: { sourcemap: false, chunkSizeWarningLimit: 900 },

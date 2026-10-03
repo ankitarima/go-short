@@ -12,7 +12,8 @@ export default defineConfig({
   base: '/console/',
   plugins: [react(), tailwindcss()],
   resolve: { alias: { '@': path.resolve(__dirname, 'src') } },
-  server: { port: 5174, proxy },
+  // strictPort: this port is an internal detail; the web dev server proxies /console to it (open :5173/console/).
+  server: { port: 5174, strictPort: true, proxy },
   preview: { port: 4174, proxy },
   build: { sourcemap: false, chunkSizeWarningLimit: 900 },
   test: {

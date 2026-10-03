@@ -6,8 +6,8 @@ import { PageHeader } from '@go-short/ui/components/page-header';
 import { TBody, TD, TH, THead, TR, Table } from '@go-short/ui/components/table';
 import { formatDateTime } from '@/lib/format';
 import type { AuditEntry } from '@/types';
-import { LoadMore, SearchBox } from '@/components/bits';
-import { useCursorList } from '@/hooks/useCursorList';
+import { PagerFooter, SearchBox } from '@/components/bits';
+import { usePagedList } from '@/hooks/usePaging';
 import { useDebounced } from '@/hooks/useDebounced';
 
 const label = (a: string) => a.toLowerCase().replace(/_/g, ' ');
@@ -15,7 +15,9 @@ const label = (a: string) => a.toLowerCase().replace(/_/g, ' ');
 export function AuditPage() {
   const [q, setQ] = useState('');
   const dq = useDebounced(q.trim());
-  const list = useCursorList<AuditEntry>('/admin/audit-logs', { q: dq || undefined });
+  const { rows, pager, query } = usePagedList<AuditEntry>('/admin/audit-logs', {
+    q: dq || undefined,
+  });
   const [open, setOpen] = useState<string | null>(null);
   return (
     <>
@@ -26,13 +28,13 @@ export function AuditPage() {
       <div className="mb-4">
         <SearchBox value={q} onChange={setQ} placeholder="Search by action or person" />
       </div>
-      {list.isError ? (
-        <ErrorState error={list.error} onRetry={() => void list.refetch()} />
-      ) : list.isPending ? (
+      {query.isError ? (
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+      ) : query.isPending ? (
         <Card>
           <TableSkeleton rows={8} cols={4} />
         </Card>
-      ) : list.rows.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={ScrollText}
           title="Nothing logged"
@@ -50,7 +52,7 @@ export function AuditPage() {
               </TR>
             </THead>
             <TBody>
-              {list.rows.map((a) => (
+              {rows.map((a) => (
                 <TR
                   key={a.id}
                   className="cursor-pointer"
@@ -90,11 +92,7 @@ export function AuditPage() {
               ))}
             </TBody>
           </Table>
-          <LoadMore
-            hasNext={!!list.hasNextPage}
-            loading={list.isFetchingNextPage}
-            onClick={() => void list.fetchNextPage()}
-          />
+          <PagerFooter pager={pager} />
         </Card>
       )}
     </>

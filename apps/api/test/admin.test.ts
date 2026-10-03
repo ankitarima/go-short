@@ -574,3 +574,28 @@ describe('queues, failed jobs and cleanup', () => {
     );
   });
 });
+
+describe('list filters and totals', () => {
+  it('users can hide or show only platform staff, and lists report a total', async () => {
+    const sa = await makeStaff('SUPER_ADMIN');
+    await makeStaff('MANAGER');
+    const u1 = await registerUser(app, 'Cust One');
+    await registerUser(app, 'Cust Two');
+    const all = (await get(sa, A('/users')).expect(200)).body;
+    expect(all.total).toBe(4);
+    const customers = (await get(sa, A('/users?staff=exclude')).expect(200)).body;
+    expect(customers.total).toBe(2);
+    expect(customers.data.every((u: { systemRole: string }) => u.systemRole === 'USER')).toBe(true);
+    const staff = (await get(sa, A('/users?staff=only')).expect(200)).body;
+    expect(staff.total).toBe(2);
+    expect(staff.data.some((u: { id: string }) => u.id === u1.userId)).toBe(false);
+    // total ignores paging but follows the search
+    const page = (await get(sa, A('/users?staff=exclude&limit=1')).expect(200)).body;
+    expect(page.data).toHaveLength(1);
+    expect(page.total).toBe(2);
+    expect((await get(sa, A('/users?staff=exclude&q=Cust%20One')).expect(200)).body.total).toBe(1);
+    await get(sa, A('/users?staff=maybe')).expect(400);
+    expect(typeof (await get(sa, A('/workspaces')).expect(200)).body.total).toBe('number');
+    expect(typeof (await get(sa, A('/teams')).expect(200)).body.total).toBe('number');
+  });
+});

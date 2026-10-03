@@ -114,11 +114,17 @@ export async function api<T>(path: string, o: RequestOptions = {}): Promise<T> {
 export interface Page<T> {
   data: T[];
   nextCursor: string | null;
+  /** Present only where the API can count cheaply (some admin lists). */
+  total?: number;
 }
 export async function apiPage<T>(path: string, o: RequestOptions = {}): Promise<Page<T>> {
   const res = await send(path, o);
-  const j = (await res.json()) as { data: T[]; nextCursor?: string | null };
-  return { data: j.data, nextCursor: j.nextCursor ?? null };
+  const j = (await res.json()) as { data: T[]; nextCursor?: string | null; total?: number };
+  return {
+    data: j.data,
+    nextCursor: j.nextCursor ?? null,
+    ...(typeof j.total === 'number' ? { total: j.total } : {}),
+  };
 }
 
 export async function apiBlob(path: string, o: RequestOptions = {}): Promise<Blob> {

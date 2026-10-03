@@ -21,33 +21,36 @@ import { TBody, TD, TH, THead, TR, Table } from '@go-short/ui/components/table';
 import { ApiError, api } from '@/lib/api';
 import { formatDate, formatDateTime } from '@/lib/format';
 import type { AdminUser, AdminUserDetail } from '@/types';
-import { LoadMore, RoleBadge, SearchBox, StatusBadge } from '@/components/bits';
+import { PagerFooter, RoleBadge, SearchBox, StatusBadge } from '@/components/bits';
 import { useConsole } from '@/hooks/useConsole';
-import { useCursorList } from '@/hooks/useCursorList';
+import { usePagedList } from '@/hooks/usePaging';
 import { useDebounced } from '@/hooks/useDebounced';
 import { Link } from 'react-router-dom';
 
 export function UsersPage() {
   const [q, setQ] = useState('');
   const dq = useDebounced(q.trim());
-  const list = useCursorList<AdminUser>('/admin/users', { q: dq || undefined });
+  const { rows, pager, query } = usePagedList<AdminUser>('/admin/users', {
+    q: dq || undefined,
+    staff: 'exclude',
+  });
   const [open, setOpen] = useState<string | null>(null);
   return (
     <>
       <PageHeader
         title="Users"
-        description="Every account on the platform. Open one to see its workspaces and manage its access."
+        description="Customer accounts. Platform staff are managed under Platform staff."
       />
       <div className="mb-4">
         <SearchBox value={q} onChange={setQ} placeholder="Search by name or email" />
       </div>
-      {list.isError ? (
-        <ErrorState error={list.error} onRetry={() => void list.refetch()} />
-      ) : list.isPending ? (
+      {query.isError ? (
+        <ErrorState error={query.error} onRetry={() => void query.refetch()} />
+      ) : query.isPending ? (
         <Card>
-          <TableSkeleton rows={6} cols={5} />
+          <TableSkeleton rows={6} cols={4} />
         </Card>
-      ) : list.rows.length === 0 ? (
+      ) : rows.length === 0 ? (
         <EmptyState
           icon={Users}
           title="No users found"
@@ -59,14 +62,14 @@ export function UsersPage() {
             <THead>
               <TR className="hover:bg-transparent">
                 <TH>User</TH>
-                <TH>Platform role</TH>
+
                 <TH>Status</TH>
                 <TH className="hidden md:table-cell">Workspaces</TH>
                 <TH className="hidden lg:table-cell">Joined</TH>
               </TR>
             </THead>
             <TBody>
-              {list.rows.map((u) => (
+              {rows.map((u) => (
                 <TR key={u.id} className="cursor-pointer" onClick={() => setOpen(u.id)}>
                   <TD>
                     <button
@@ -84,9 +87,6 @@ export function UsersPage() {
                     </button>
                   </TD>
                   <TD>
-                    <RoleBadge role={u.systemRole} />
-                  </TD>
-                  <TD>
                     <StatusBadge disabled={u.disabledAt !== null} />
                   </TD>
                   <TD className="hidden md:table-cell">{u.workspaceCount}</TD>
@@ -97,11 +97,7 @@ export function UsersPage() {
               ))}
             </TBody>
           </Table>
-          <LoadMore
-            hasNext={!!list.hasNextPage}
-            loading={list.isFetchingNextPage}
-            onClick={() => void list.fetchNextPage()}
-          />
+          <PagerFooter pager={pager} />
         </Card>
       )}
       <UserDialog id={open} onClose={() => setOpen(null)} />

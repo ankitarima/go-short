@@ -263,6 +263,8 @@ export const adminListQuery = cursorQuery.extend({
   workspaceId: z.string().max(50).optional(),
   status: z.enum(['PENDING', 'VERIFIED', 'DISABLED']).optional(),
   action: z.string().trim().max(60).optional(),
+  /** Users list: `exclude` hides platform staff (they have their own page), `only` shows just them. */
+  staff: z.enum(['exclude', 'only']).optional(),
 });
 export const staffRoleSchema = z.enum(['MANAGER', 'ADMIN', 'SUPER_ADMIN']);
 export const addStaffSchema = z.object({

@@ -83,64 +83,81 @@ export function adminRouter(ctx: AppContext): Router {
 
   r.get('/users', async (req, res) => {
     const q = adminListQuery.parse(req.query);
-    const rows = await prisma.user.findMany({
-      where: q.q
+    const where: Prisma.UserWhereInput = {
+      ...(q.staff === 'exclude'
+        ? { systemRole: 'USER' }
+        : q.staff === 'only'
+          ? { systemRole: { not: 'USER' } }
+          : {}),
+      ...(q.q
         ? {
             OR: [
               { email: { contains: escapeLike(q.q), mode: 'insensitive' } },
               { name: { contains: escapeLike(q.q), mode: 'insensitive' } },
             ],
           }
-        : {},
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        emailVerified: true,
-        systemRole: true,
-        disabledAt: true,
-        createdAt: true,
-        _count: { select: { memberships: true } },
-      },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: q.limit + 1,
-      ...cursorArgs(q.cursor),
-    });
+        : {}),
+    };
+    const [total, rows] = await Promise.all([
+      prisma.user.count({ where }),
+      prisma.user.findMany({
+        where,
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          emailVerified: true,
+          systemRole: true,
+          disabledAt: true,
+          createdAt: true,
+          _count: { select: { memberships: true } },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: q.limit + 1,
+        ...cursorArgs(q.cursor),
+      }),
+    ]);
     const p = page(rows, q.limit);
     res.json({
       success: true,
       data: p.data.map(({ _count, ...u }) => ({ ...u, workspaceCount: _count.memberships })),
       nextCursor: p.nextCursor,
+      total,
     });
   });
 
   r.get('/workspaces', async (req, res) => {
     const q = adminListQuery.parse(req.query);
-    const rows = await prisma.workspace.findMany({
-      where: q.q
-        ? {
-            OR: [
-              { name: { contains: escapeLike(q.q), mode: 'insensitive' } },
-              { slug: { contains: escapeLike(q.q), mode: 'insensitive' } },
-            ],
-          }
-        : {},
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        timezone: true,
-        retentionDays: true,
-        createdAt: true,
-        _count: { select: { members: true, links: true, domains: true, campaigns: true } },
-      },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: q.limit + 1,
-      ...cursorArgs(q.cursor),
-    });
+    const wsWhere: Prisma.WorkspaceWhereInput = q.q
+      ? {
+          OR: [
+            { name: { contains: escapeLike(q.q), mode: 'insensitive' } },
+            { slug: { contains: escapeLike(q.q), mode: 'insensitive' } },
+          ],
+        }
+      : {};
+    const [total, rows] = await Promise.all([
+      prisma.workspace.count({ where: wsWhere }),
+      prisma.workspace.findMany({
+        where: wsWhere,
+        select: {
+          id: true,
+          name: true,
+          slug: true,
+          timezone: true,
+          retentionDays: true,
+          createdAt: true,
+          _count: { select: { members: true, links: true, domains: true, campaigns: true } },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: q.limit + 1,
+        ...cursorArgs(q.cursor),
+      }),
+    ]);
     const p = page(rows, q.limit);
     res.json({
       success: true,
+      total,
       data: p.data.map(({ _count, ...w }) => ({
         ...w,
         memberCount: _count.members,

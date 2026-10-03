@@ -267,19 +267,22 @@ export function registerPlatformRoutes(r: Router, ctx: AppContext): void {
           }
         : {}),
     };
-    const rows = await prisma.workspaceMember.findMany({
-      where,
-      select: {
-        id: true,
-        role: true,
-        createdAt: true,
-        user: { select: { id: true, email: true, name: true, disabledAt: true } },
-        workspace: { select: { id: true, name: true, slug: true } },
-      },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      take: q.limit + 1,
-      ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
-    });
+    const [total, rows] = await Promise.all([
+      prisma.workspaceMember.count({ where }),
+      prisma.workspaceMember.findMany({
+        where,
+        select: {
+          id: true,
+          role: true,
+          createdAt: true,
+          user: { select: { id: true, email: true, name: true, disabledAt: true } },
+          workspace: { select: { id: true, name: true, slug: true } },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        take: q.limit + 1,
+        ...(q.cursor ? { cursor: { id: q.cursor }, skip: 1 } : {}),
+      }),
+    ]);
     const data = rows.slice(0, q.limit).map((m) => ({
       id: m.id,
       role: m.role,
@@ -296,6 +299,7 @@ export function registerPlatformRoutes(r: Router, ctx: AppContext): void {
       success: true,
       data,
       nextCursor: rows.length > q.limit ? rows[q.limit - 1]!.id : null,
+      total,
     });
   });
 

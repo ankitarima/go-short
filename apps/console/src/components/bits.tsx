@@ -9,7 +9,8 @@ import {
   YAxis,
 } from 'recharts';
 import { Badge } from '@go-short/ui/components/badge';
-import { Button } from '@go-short/ui/components/button';
+import { Pagination } from '@go-short/ui/components/pagination';
+import type { PagerState } from '@/hooks/usePaging';
 import { Input } from '@go-short/ui/components/input';
 import { ROLE_LABEL } from '@/lib/format';
 
@@ -39,23 +40,8 @@ export function SearchBox({
   );
 }
 
-export function LoadMore({
-  hasNext,
-  loading,
-  onClick,
-}: {
-  hasNext: boolean;
-  loading: boolean;
-  onClick: () => void;
-}) {
-  if (!hasNext) return null;
-  return (
-    <div className="flex justify-center border-t border-border p-3">
-      <Button variant="secondary" size="sm" loading={loading} onClick={onClick}>
-        Load more
-      </Button>
-    </div>
-  );
+export function PagerFooter({ pager }: { pager: PagerState }) {
+  return <Pagination {...pager} />;
 }
 
 export function RoleBadge({ role }: { role: keyof typeof ROLE_LABEL }) {

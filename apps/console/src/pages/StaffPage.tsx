@@ -24,7 +24,8 @@ import { TBody, TD, TH, THead, TR, Table } from '@go-short/ui/components/table';
 import { ApiError, api } from '@/lib/api';
 import { ROLE_HINT, ROLE_LABEL, formatDate } from '@/lib/format';
 import type { StaffMember, StaffRole } from '@/types';
-import { RoleBadge, StatusBadge } from '@/components/bits';
+import { PagerFooter, RoleBadge, StatusBadge } from '@/components/bits';
+import { useClientPaging } from '@/hooks/usePaging';
 import { useConsole } from '@/hooks/useConsole';
 
 const ROLES: StaffRole[] = ['MANAGER', 'ADMIN', 'SUPER_ADMIN'];
@@ -37,6 +38,7 @@ export function StaffPage() {
     queryKey: ['console', 'staff'],
     queryFn: () => api<StaffMember[]>('/admin/staff'),
   });
+  const staffPage = useClientPaging(q.data ?? [], 10);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<StaffMember | null>(null);
   const refresh = () => void qc.invalidateQueries({ queryKey: ['console'] });
@@ -114,7 +116,7 @@ export function StaffPage() {
               </TR>
             </THead>
             <TBody>
-              {q.data.map((m) => {
+              {staffPage.rows.map((m) => {
                 const self = m.id === session.user.id;
                 return (
                   <TR key={m.id}>
@@ -175,6 +177,7 @@ export function StaffPage() {
               })}
             </TBody>
           </Table>
+          <PagerFooter pager={staffPage.pager} />
         </Card>
       )}
       <AddStaffDialog open={adding} onOpenChange={setAdding} onAdded={refresh} />
