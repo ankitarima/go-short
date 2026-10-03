@@ -12,7 +12,7 @@ import {
   CardTitle,
 } from '@go-short/ui/components/card';
 import { Field } from '@go-short/ui/components/field';
-import { Input } from '@go-short/ui/components/input';
+import { PasswordInput } from '@go-short/ui/components/input';
 import { useWorkspace } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
 
@@ -67,9 +67,9 @@ export function SecurityPanel() {
           <CardContent className="flex flex-col gap-5">
             {err && !err.field('newPassword') && <Callout tone="danger">{err.message}</Callout>}
             <Field id="cur-pw" label="Current password">
-              <Input
+              <PasswordInput
                 id="cur-pw"
-                type="password"
+
                 autoComplete="current-password"
                 required
                 value={current}
@@ -82,9 +82,9 @@ export function SecurityPanel() {
               hint="At least 12 characters."
               error={short ? 'Use at least 12 characters.' : err?.field('newPassword')}
             >
-              <Input
+              <PasswordInput
                 id="new-pw"
-                type="password"
+
                 autoComplete="new-password"
                 required
                 value={next}

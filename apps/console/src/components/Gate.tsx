@@ -5,7 +5,7 @@ import { useState, type FormEvent } from 'react';
 import { Button } from '@go-short/ui/components/button';
 import { Callout } from '@go-short/ui/components/callout';
 import { Field } from '@go-short/ui/components/field';
-import { Input } from '@go-short/ui/components/input';
+import { Input, PasswordInput } from '@go-short/ui/components/input';
 import { ErrorState } from '@go-short/ui/components/states';
 import { ApiError, api } from '@/lib/api';
 import {
@@ -93,9 +93,9 @@ function SignIn() {
           />
         </Field>
         <Field id="password" label="Password">
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
+
             autoComplete="current-password"
             required
             value={password}

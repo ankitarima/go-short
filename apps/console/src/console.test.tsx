@@ -43,6 +43,17 @@ describe('access', () => {
     expect(appLogin.calls).toEqual([]);
   });
 
+  it('the console password field has a show/hide eye', async () => {
+    server.use(http.get('/api/v1/admin/me', () => apiError(401, 'UNAUTHENTICATED', 'Sign in')));
+    const { user } = renderConsole('/');
+    const field = (await screen.findByLabelText('Password')) as HTMLInputElement;
+    expect(field.type).toBe('password');
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(field.type).toBe('text');
+    await user.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(field.type).toBe('password');
+  });
+
   it('shows the API’s message for a suspended account', async () => {
     server.use(
       http.get('/api/v1/admin/me', () => apiError(401, 'UNAUTHENTICATED', 'Sign in')),

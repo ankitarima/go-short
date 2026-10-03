@@ -14,7 +14,7 @@ import {
 } from '@go-short/ui/components/dialog';
 import { Disclosure } from '@go-short/ui/components/collapsible';
 import { Field } from '@go-short/ui/components/field';
-import { Input, NativeSelect } from '@go-short/ui/components/input';
+import { Input, NativeSelect, PasswordInput } from '@go-short/ui/components/input';
 import { Switch } from '@go-short/ui/components/switch';
 import { useWorkspace, wsPath } from '@/hooks/useAuth';
 import { ApiError, api } from '@/lib/api';
@@ -286,9 +286,9 @@ export function LinkFormDialog({ open, onOpenChange, link, campaignId, onSaved }
                   hint="Visitors must enter it before being redirected."
                   error={err?.field('password')}
                 >
-                  <Input
+                  <PasswordInput
                     id="password"
-                    type="password"
+
                     autoComplete="new-password"
                     minLength={4}
                     maxLength={128}

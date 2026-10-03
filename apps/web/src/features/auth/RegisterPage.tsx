@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Button } from '@go-short/ui/components/button';
 import { Callout } from '@go-short/ui/components/callout';
 import { Field } from '@go-short/ui/components/field';
-import { Input } from '@go-short/ui/components/input';
+import { Input, PasswordInput } from '@go-short/ui/components/input';
 import { ME_KEY } from '@/hooks/useAuth';
 import { ApiError, api, setCsrfToken } from '@/lib/api';
 import type { AuthResult } from '@/types/api';
@@ -87,9 +87,9 @@ export function RegisterPage() {
           hint="At least 12 characters."
           error={tooShort ? 'Use at least 12 characters.' : err?.field('password')}
         >
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
+
             autoComplete="new-password"
             required
             value={password}

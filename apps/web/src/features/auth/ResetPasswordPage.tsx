@@ -4,7 +4,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Button } from '@go-short/ui/components/button';
 import { Callout } from '@go-short/ui/components/callout';
 import { Field } from '@go-short/ui/components/field';
-import { Input } from '@go-short/ui/components/input';
+import { PasswordInput } from '@go-short/ui/components/input';
 import { ApiError, api } from '@/lib/api';
 import { AuthLayout } from './AuthLayout';
 
@@ -56,9 +56,9 @@ export function ResetPasswordPage() {
             hint="At least 12 characters."
             error={tooShort ? 'Use at least 12 characters.' : undefined}
           >
-            <Input
+            <PasswordInput
               id="password"
-              type="password"
+
               autoComplete="new-password"
               autoFocus
               required

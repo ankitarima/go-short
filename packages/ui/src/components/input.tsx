@@ -1,4 +1,5 @@
-import type { ComponentProps } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
+import { useState, type ComponentProps } from 'react';
 import { cn } from '../lib/cn';
 
 const field =
@@ -6,6 +7,30 @@ const field =
 
 export function Input({ className, ...props }: ComponentProps<'input'>) {
   return <input className={cn(field, 'h-10', className)} {...props} />;
+}
+
+/** Password field with a show/hide toggle (the eye). Every password input in the products uses this. */
+export function PasswordInput({ className, ...props }: Omit<ComponentProps<'input'>, 'type'>) {
+  const [shown, setShown] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        {...props}
+        type={shown ? 'text' : 'password'}
+        className={cn(field, 'h-10 pr-10', className)}
+      />
+      <button
+        type="button"
+        onClick={() => setShown((v) => !v)}
+        aria-label={shown ? 'Hide password' : 'Show password'}
+        aria-pressed={shown}
+        disabled={props.disabled}
+        className="absolute right-1.5 top-1/2 grid size-7 -translate-y-1/2 place-items-center rounded text-subtle-foreground transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue/40 disabled:pointer-events-none disabled:opacity-50"
+      >
+        {shown ? <EyeOff className="size-4" aria-hidden /> : <Eye className="size-4" aria-hidden />}
+      </button>
+    </div>
+  );
 }
 
 export function Textarea({ className, ...props }: ComponentProps<'textarea'>) {

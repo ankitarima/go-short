@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@go-short/ui/components/button';
 import { Callout } from '@go-short/ui/components/callout';
 import { Field } from '@go-short/ui/components/field';
-import { Input } from '@go-short/ui/components/input';
+import { Input, PasswordInput } from '@go-short/ui/components/input';
 import { ME_KEY } from '@/hooks/useAuth';
 import { ApiError, api, setCsrfToken } from '@/lib/api';
 import type { AuthResult } from '@/types/api';
@@ -68,9 +68,9 @@ export function LoginPage() {
           />
         </Field>
         <Field id="password" label="Password">
-          <Input
+          <PasswordInput
             id="password"
-            type="password"
+
             autoComplete="current-password"
             required
             value={password}

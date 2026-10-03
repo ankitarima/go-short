@@ -434,6 +434,25 @@ describe('QR marker', () => {
 });
 
 describe('password-protected links', () => {
+  it('offers a show/hide toggle whose script is allowed only by its hash, and no other inline script runs', async () => {
+    await setup('vault', { password: 'open-sesame' });
+    const { server } = makeRedirect();
+    const res = await get(server, '/vault');
+    expect(res.text).toContain('id="pw-toggle"');
+    expect(res.text).toContain('aria-label="Show password"');
+    expect(res.text).toContain('hidden'); // without JavaScript the button stays hidden
+    const csp = res.headers['content-security-policy']!;
+    expect(csp).toContain("default-src 'none'");
+    expect(csp).not.toContain("script-src 'unsafe-inline'");
+    // the hash in the header is the hash of exactly the one script in the page
+    const scripts = [...res.text.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((m) => m[1]!);
+    expect(scripts).toHaveLength(1);
+    const { createHash } = await import('node:crypto');
+    expect(csp).toContain(`'sha256-${createHash('sha256').update(scripts[0]!).digest('base64')}'`);
+    // other pages carry no script at all
+    expect((await get(server, '/nope')).text).not.toContain('<script');
+  });
+
   it('shows a form without leaking the destination and caches no destination', async () => {
     await setup('vault', { password: 'open-sesame' });
     const { server, publisher } = makeRedirect();

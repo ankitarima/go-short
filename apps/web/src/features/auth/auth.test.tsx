@@ -217,3 +217,43 @@ describe('onboarding, invitations and password reset', () => {
 });
 
 void HttpResponse;
+
+describe('password fields', () => {
+  it('every password field has a show/hide eye that toggles the field and is keyboard accessible', async () => {
+    server.use(http.get('/api/v1/me', () => apiError(401, 'UNAUTHENTICATED', 'Sign in')));
+    for (const path of ['/login', '/register']) {
+      const { user, unmount } = renderApp(path);
+      const field = (await screen.findByLabelText('Password')) as HTMLInputElement;
+      expect(field.type).toBe('password');
+      const eye = screen.getByRole('button', { name: 'Show password' });
+      expect(eye).toHaveAttribute('aria-pressed', 'false');
+      await user.type(field, 'hunter2-hunter2');
+      await user.click(eye);
+      expect(field.type).toBe('text');
+      expect(field.value).toBe('hunter2-hunter2'); // typed text is kept
+      expect(screen.getByRole('button', { name: 'Hide password' })).toHaveAttribute(
+        'aria-pressed',
+        'true',
+      );
+      await user.click(screen.getByRole('button', { name: 'Hide password' }));
+      expect(field.type).toBe('password');
+      eye.focus();
+      await user.keyboard('{Enter}');
+      expect(field.type).toBe('text');
+      unmount();
+    }
+  });
+
+  it('the eye never submits the form', async () => {
+    let posts = 0;
+    server.use(
+      http.get('/api/v1/me', () => apiError(401, 'UNAUTHENTICATED', 'Sign in')),
+      http.post('/api/v1/auth/login', () => (posts++, apiError(401, 'INVALID_CREDENTIALS', 'x'))),
+    );
+    const { user } = renderApp('/login');
+    await user.type(await screen.findByLabelText('Email'), 'a@example.com');
+    await user.type(screen.getByLabelText('Password'), 'some-password-1');
+    await user.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(posts).toBe(0);
+  });
+});

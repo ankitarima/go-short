@@ -14,6 +14,7 @@ import {
   expiredPage,
   notFoundPage,
   passwordPage,
+  TOGGLE_SCRIPT_CSP_HASH,
   tooManyPage,
 } from './pages';
 import type { AnalyticsPublisher } from './publisher';
@@ -80,8 +81,7 @@ export function createRedirectServer(deps: RedirectDeps): Server {
       'Content-Length': Buffer.byteLength(body),
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
-      'Content-Security-Policy':
-        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'",
+      'Content-Security-Policy': `default-src 'none'; style-src 'unsafe-inline'; script-src ${TOGGLE_SCRIPT_CSP_HASH}; form-action 'self'; frame-ancestors 'none'`,
       'Referrer-Policy': 'no-referrer',
     });
     res.end(head ? undefined : body);
