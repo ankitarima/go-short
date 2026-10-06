@@ -34,6 +34,10 @@ ADMIN_PASSWORD='a long passphrase' node dist/cli/create-admin.js admin@yourdomai
 
 This creates a verified account with the SUPER_ADMIN role; sign in at `https://APP_DOMAIN/console`. Run it again for an existing email to promote that account instead (its password is left alone); `--role ADMIN|MANAGER` picks a lower role. Further staff are added from the console's Staff page. Clear the command from the terminal history afterwards.
 
+## More short domains later (no environment changes)
+
+`DEFAULT_SHORT_DOMAIN` only seeds the first one. To add another: create its DNS `A` record, add it in the console (**Short domains**), then add the same hostname to the `web` service's Domains in Coolify (`https://go2.example.com:80`, comma-separated with the others) and redeploy/reload the proxy so Traefik issues its certificate. The console part takes effect immediately; the Coolify part is the only manual step, because Coolify's proxy only serves hostnames it has been told about. Changing which domain is the default is console-only.
+
 ## Custom domains on Coolify
 
 Coolify's proxy issues a certificate only for hostnames it has been told about. When a customer verifies a domain in goShort, add the same hostname to the `web` service's domain list in Coolify (and redeploy/reload the proxy as Coolify requires). The DNS check goShort performs is the same either way; only the certificate step is manual.

@@ -902,6 +902,59 @@ export const operations: Op[] = [
   },
   {
     method: 'get',
+    path: '/admin/shared-domains',
+    scope: 'admin',
+    tag: 'Admin',
+    summary: 'Shared short domains',
+    description:
+      'The hostnames every workspace can put links on, with how many links use each, and the host customers CNAME their own domains to.',
+    response: ref('SharedDomains'),
+  },
+  {
+    method: 'post',
+    path: '/admin/shared-domains',
+    scope: 'admin',
+    tag: 'Admin',
+    summary: 'Add a shared short domain',
+    description:
+      'Super admin only. The first shared domain is always the default. Point DNS at the server first; `GET /admin/shared-domains/{id}/dns` checks it.',
+    body: v.createSharedDomainSchema,
+    status: 201,
+    response: ref('SharedDomain'),
+  },
+  {
+    method: 'patch',
+    path: '/admin/shared-domains/{id}',
+    scope: 'admin',
+    tag: 'Admin',
+    summary: 'Make a shared domain the default, or disable or enable it',
+    description:
+      'Super admin only. The default cannot be disabled, and at least one shared domain must stay active. Disabling stops every link on it from redirecting.',
+    body: v.updateSharedDomainSchema,
+    response: ref('SharedDomain'),
+  },
+  {
+    method: 'delete',
+    path: '/admin/shared-domains/{id}',
+    scope: 'admin',
+    tag: 'Admin',
+    summary: 'Remove a shared domain',
+    description:
+      'Super admin only. Refused for the default domain and for any domain that still has links.',
+    response: OK,
+  },
+  {
+    method: 'get',
+    path: '/admin/shared-domains/{id}/dns',
+    scope: 'admin',
+    tag: 'Admin',
+    summary: 'Check where a shared domain points',
+    description:
+      'Compares the domain’s addresses with the app’s. A hint only: behind a CDN or proxy they can differ even though everything works.',
+    response: ref('SharedDomainDns'),
+  },
+  {
+    method: 'get',
     path: '/admin/monitoring',
     scope: 'admin',
     tag: 'Admin',

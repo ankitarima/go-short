@@ -1,7 +1,16 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { capture, renderConsole } from '@/test/render';
-import { apiError, consoleMe, http, mkStaff, mkUser, ok, server } from '@/test/server';
+import {
+  apiError,
+  consoleMe,
+  http,
+  HttpResponse,
+  mkStaff,
+  mkUser,
+  ok,
+  server,
+} from '@/test/server';
 
 const asRole = (role: 'MANAGER' | 'ADMIN' | 'SUPER_ADMIN', over = {}) =>
   server.use(http.get('/api/v1/admin/me', () => ok(consoleMe(role, over))));
@@ -143,6 +152,7 @@ describe('overview', () => {
       'Users',
       'Workspaces',
       'Teams',
+      'Short domains',
       'Platform staff',
       'Audit log',
       'Queues and jobs',
@@ -615,5 +625,192 @@ describe('monitoring', () => {
     );
     expect(screen.getByRole('link', { name: /Prometheus/ })).toHaveAttribute('target', '_blank');
     await waitFor(() => expect(screen.getAllByRole('img', { name: /over time/ })).toHaveLength(4));
+  });
+});
+
+const dom = (over: Partial<import('@/types').SharedDomain> = {}) => ({
+  id: 'd_1',
+  hostname: 'go.example.com',
+  status: 'VERIFIED' as const,
+  isDefault: true,
+  linkCount: 12,
+  createdAt: '2026-09-01T00:00:00Z',
+  ...over,
+});
+const domainList = (domains: ReturnType<typeof dom>[]) =>
+  http.get('/api/v1/admin/shared-domains', () =>
+    ok({ domains, cnameTarget: 'go.example.com', appHostname: 'app.example.com' }),
+  );
+
+describe('short domains', () => {
+  it('lists them with default, status and link counts, and explains the CNAME target', async () => {
+    asRole('SUPER_ADMIN');
+    server.use(
+      domainList([
+        dom(),
+        dom({ id: 'd_2', hostname: 'l.example.org', isDefault: false, linkCount: 0 }),
+        dom({ id: 'd_3', hostname: 'old.example.net', isDefault: false, status: 'DISABLED' }),
+      ]),
+    );
+    renderConsole('/domains');
+    expect(await screen.findByRole('heading', { name: 'Short domains' })).toBeInTheDocument();
+    await screen.findByText('l.example.org');
+    const rows = screen.getAllByRole('row');
+    expect(within(rows[1]!).getByText('Default')).toBeInTheDocument();
+    expect(within(rows[1]!).getByText('Active')).toBeInTheDocument();
+    expect(within(rows[3]!).getByText('Disabled')).toBeInTheDocument();
+    expect(screen.getAllByText('go.example.com').length).toBeGreaterThan(1); // table + CNAME target
+    // The default cannot be disabled, removed or re-defaulted.
+    expect(within(rows[1]!).queryByRole('button', { name: /Disable|Remove|default/ })).toBeNull();
+    expect(
+      within(rows[3]!).getByRole('button', { name: 'Enable old.example.net' }),
+    ).toBeInTheDocument();
+  });
+
+  it('a manager or admin sees them read-only', async () => {
+    for (const role of ['MANAGER', 'ADMIN'] as const) {
+      asRole(role);
+      server.use(
+        domainList([dom(), dom({ id: 'd_2', hostname: 'l.example.org', isDefault: false })]),
+      );
+      const { unmount } = renderConsole('/domains');
+      await screen.findByText('l.example.org');
+      expect(screen.queryByRole('button', { name: /Add domain/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: /Make l.example.org/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: /Disable|Remove/ })).toBeNull();
+      expect(screen.getByText(/Only a super admin can change short domains/)).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it('adds a domain, sends exactly what was typed, and warns when DNS does not point here yet', async () => {
+    asRole('SUPER_ADMIN');
+    const sent = capture<unknown>();
+    const dnsCalls = capture<string>();
+    server.use(
+      domainList([dom()]),
+      http.post('/api/v1/admin/shared-domains', async ({ request }) => {
+        sent.calls.push(await request.json());
+        return ok(dom({ id: 'd_9', hostname: 'go2.example.com', isDefault: true }));
+      }),
+      http.get('/api/v1/admin/shared-domains/d_9/dns', () => {
+        dnsCalls.calls.push('dns');
+        return ok({
+          hostname: 'go2.example.com',
+          addresses: [],
+          appAddresses: ['203.0.113.5'],
+          result: 'not_resolving',
+        });
+      }),
+    );
+    const { user } = renderConsole('/domains');
+    await user.click(await screen.findByRole('button', { name: /Add domain/ }));
+    await user.type(screen.getByLabelText('Domain'), 'go2.example.com');
+    await user.click(screen.getByRole('checkbox'));
+    await user.click(screen.getByRole('button', { name: 'Add domain' }));
+    await waitFor(() =>
+      expect(sent.calls).toEqual([{ hostname: 'go2.example.com', makeDefault: true }]),
+    );
+    expect(await screen.findByText(/No DNS records found yet/)).toBeInTheDocument();
+    expect(dnsCalls.calls).toHaveLength(1);
+  });
+
+  it('shows the server’s reason on the field when the name is taken', async () => {
+    asRole('SUPER_ADMIN');
+    server.use(
+      domainList([dom()]),
+      http.post('/api/v1/admin/shared-domains', () =>
+        HttpResponse.json(
+          {
+            success: false,
+            error: {
+              code: 'DOMAIN_TAKEN',
+              message: 'That domain is already in use',
+              details: [{ path: 'hostname', message: 'Already in use' }],
+            },
+            requestId: 'r',
+          },
+          { status: 409 },
+        ),
+      ),
+    );
+    const { user } = renderConsole('/domains');
+    await user.click(await screen.findByRole('button', { name: /Add domain/ }));
+    await user.type(screen.getByLabelText('Domain'), 'taken.example.com');
+    await user.click(screen.getByRole('button', { name: 'Add domain' }));
+    expect(await screen.findByText('Already in use')).toBeInTheDocument();
+  });
+
+  it('making a domain the default needs a confirmation and then sends only that change', async () => {
+    asRole('SUPER_ADMIN');
+    const bodies = capture<unknown>();
+    server.use(
+      domainList([dom(), dom({ id: 'd_2', hostname: 'l.example.org', isDefault: false })]),
+      http.patch('/api/v1/admin/shared-domains/d_2', async ({ request }) => {
+        bodies.calls.push(await request.json());
+        return ok(dom({ id: 'd_2', hostname: 'l.example.org' }));
+      }),
+    );
+    const { user } = renderConsole('/domains');
+    await user.click(await screen.findByRole('button', { name: 'Make l.example.org the default' }));
+    expect(bodies.calls).toEqual([]);
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('Existing links are not changed');
+    await user.click(within(dialog).getByRole('button', { name: 'Make default' }));
+    await waitFor(() => expect(bodies.calls).toEqual([{ isDefault: true }]));
+  });
+
+  it('disabling warns how many links stop working; the API’s refusal is shown, not swallowed', async () => {
+    asRole('SUPER_ADMIN');
+    server.use(
+      domainList([
+        dom(),
+        dom({ id: 'd_2', hostname: 'l.example.org', isDefault: false, linkCount: 3 }),
+      ]),
+      http.patch('/api/v1/admin/shared-domains/d_2', () =>
+        apiError(409, 'CONFLICT', 'At least one shared domain must stay active'),
+      ),
+    );
+    const { user } = renderConsole('/domains');
+    await user.click(await screen.findByRole('button', { name: 'Disable l.example.org' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toHaveTextContent('3 links on l.example.org will stop redirecting');
+    await user.click(within(dialog).getByRole('button', { name: 'Disable' }));
+    expect(
+      await screen.findByText('At least one shared domain must stay active'),
+    ).toBeInTheDocument();
+  });
+
+  it('removing explains the rule and calls DELETE; a refusal is shown', async () => {
+    asRole('SUPER_ADMIN');
+    server.use(
+      domainList([dom(), dom({ id: 'd_2', hostname: 'l.example.org', isDefault: false })]),
+      http.delete('/api/v1/admin/shared-domains/d_2', () =>
+        apiError(409, 'CONFLICT', '4 links still use this domain.'),
+      ),
+    );
+    const { user } = renderConsole('/domains');
+    await user.click(await screen.findByRole('button', { name: 'Remove l.example.org' }));
+    const dialog = await screen.findByRole('dialog');
+    await user.click(within(dialog).getByRole('button', { name: 'Remove domain' }));
+    expect(await screen.findByText('4 links still use this domain.')).toBeInTheDocument();
+  });
+
+  it('Check DNS reports a match as success', async () => {
+    asRole('ADMIN');
+    server.use(
+      domainList([dom()]),
+      http.get('/api/v1/admin/shared-domains/d_1/dns', () =>
+        ok({
+          hostname: 'go.example.com',
+          addresses: ['203.0.113.5'],
+          appAddresses: ['203.0.113.5'],
+          result: 'matches',
+        }),
+      ),
+    );
+    const { user } = renderConsole('/domains');
+    await user.click(await screen.findByRole('button', { name: 'Check DNS for go.example.com' }));
+    expect(await screen.findByText(/DNS points at this server/)).toBeInTheDocument();
   });
 });

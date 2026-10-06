@@ -10,7 +10,7 @@ import { audit } from '../services/audit';
 import { emitWebhook } from '../services/webhooks';
 import { invalidateDomain } from '../services/cache';
 import { checkDomainDns } from '../services/dns';
-import { cnameTarget, domainDto, reservedHostnames } from '../services/domains';
+import { cnameTargets, domainDto, reservedHostnames } from '../services/domains';
 
 const isUniqueViolation = (e: unknown) =>
   typeof e === 'object' && e !== null && 'code' in e && e.code === 'P2002';
@@ -39,7 +39,8 @@ export function domainsRouter(ctx: AppContext): Router {
       orderBy: [{ workspaceId: { sort: 'asc', nulls: 'first' } }, { createdAt: 'asc' }],
       take: 200,
     });
-    res.json({ success: true, data: rows.map((d) => domainDto(ctx, d)) });
+    const { primary } = await cnameTargets(ctx);
+    res.json({ success: true, data: rows.map((d) => domainDto(d, primary)) });
   });
 
   r.get('/:domainId', requireWorkspace(ctx, 'domains:read'), async (req, res) => {
@@ -48,7 +49,7 @@ export function domainsRouter(ctx: AppContext): Router {
       where: { id, OR: [{ workspaceId: req.workspace!.id }, { workspaceId: null }] },
     });
     if (!d) throw new AppError('DOMAIN_NOT_FOUND', 'Domain not found');
-    res.json({ success: true, data: domainDto(ctx, d) });
+    res.json({ success: true, data: domainDto(d, (await cnameTargets(ctx)).primary) });
   });
 
   r.post(
@@ -81,7 +82,9 @@ export function domainsRouter(ctx: AppContext): Router {
           resourceId: d.id,
           metadata: { hostname },
         });
-        res.status(201).json({ success: true, data: domainDto(ctx, d) });
+        res
+          .status(201)
+          .json({ success: true, data: domainDto(d, (await cnameTargets(ctx)).primary) });
       } catch (err) {
         if (isUniqueViolation(err))
           throw new AppError('DOMAIN_TAKEN', 'That domain is already in use');
@@ -101,21 +104,17 @@ export function domainsRouter(ctx: AppContext): Router {
     }),
     async (req, res) => {
       const d = await findOwned(req.workspace!.id, z.string().parse(req.params.domainId));
+      const cname = await cnameTargets(ctx);
       if (d.isVerified)
         return void res.json({
           success: true,
-          data: { verified: true, domain: domainDto(ctx, d) },
+          data: { verified: true, domain: domainDto(d, cname.primary) },
         });
-      const check = await checkDomainDns(
-        ctx.dns,
-        d.hostname,
-        d.verificationToken,
-        cnameTarget(ctx),
-      );
+      const check = await checkDomainDns(ctx.dns, d.hostname, d.verificationToken, cname.accepted);
       if (!check.ok)
         return void res.json({
           success: true,
-          data: { verified: false, domain: domainDto(ctx, d) },
+          data: { verified: false, domain: domainDto(d, cname.primary) },
         });
       const updated = await prisma.domain.update({
         where: { id: d.id },
@@ -135,7 +134,11 @@ export function domainsRouter(ctx: AppContext): Router {
       });
       res.json({
         success: true,
-        data: { verified: true, method: check.method, domain: domainDto(ctx, updated) },
+        data: {
+          verified: true,
+          method: check.method,
+          domain: domainDto(updated, cname.primary),
+        },
       });
     },
   );
@@ -183,7 +186,7 @@ export function domainsRouter(ctx: AppContext): Router {
       resourceId: d.id,
       metadata: { fields: Object.keys(input) },
     });
-    res.json({ success: true, data: domainDto(ctx, updated) });
+    res.json({ success: true, data: domainDto(updated, (await cnameTargets(ctx)).primary) });
   });
 
   r.delete('/:domainId', requireWorkspace(ctx, 'domains:manage'), async (req, res) => {

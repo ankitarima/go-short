@@ -30,10 +30,14 @@ export class CapturingEmail implements EmailProvider {
 export class FakeDns implements DnsResolver {
   cname = new Map<string, string[]>();
   txt = new Map<string, string[][]>();
+  addresses = new Map<string, string[]>();
   async resolveCname(h: string) {
     const v = this.cname.get(h);
     if (!v) throw Object.assign(new Error('ENODATA'), { code: 'ENODATA' });
     return v;
+  }
+  async resolveAddresses(h: string) {
+    return this.addresses.get(h) ?? [];
   }
   async resolveTxt(h: string) {
     const v = this.txt.get(h);

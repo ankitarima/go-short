@@ -154,3 +154,23 @@ export interface MetricRange {
   minutes: number;
   points: Array<{ t: number; v: number | null }>;
 }
+
+export interface SharedDomain {
+  id: string;
+  hostname: string;
+  status: 'VERIFIED' | 'DISABLED';
+  isDefault: boolean;
+  linkCount: number;
+  createdAt: string;
+}
+export interface SharedDomains {
+  domains: SharedDomain[];
+  cnameTarget: string;
+  appHostname: string;
+}
+export interface SharedDomainDns {
+  hostname: string;
+  addresses: string[];
+  appAddresses: string[];
+  result: 'matches' | 'differs' | 'not_resolving' | 'unknown';
+}

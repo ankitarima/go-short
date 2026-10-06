@@ -395,6 +395,25 @@ export const schemas: Record<string, S> = {
     disabled: { type: 'boolean' },
     createdAt: dateTime(),
   }),
+  SharedDomain: obj({
+    id: str(),
+    hostname: str(),
+    status: { type: 'string', enum: ['VERIFIED', 'DISABLED'] },
+    isDefault: { type: 'boolean' },
+    linkCount: { type: 'integer' },
+    createdAt: dateTime(),
+  }),
+  SharedDomains: obj({
+    domains: { type: 'array', items: { $ref: '#/components/schemas/SharedDomain' } },
+    cnameTarget: str(),
+    appHostname: str(),
+  }),
+  SharedDomainDns: obj({
+    hostname: str(),
+    addresses: { type: 'array', items: str() },
+    appAddresses: { type: 'array', items: str() },
+    result: { type: 'string', enum: ['matches', 'differs', 'not_resolving', 'unknown'] },
+  }),
   UserDisabled: obj({ id: str(), disabled: { type: 'boolean' } }),
   MetricValue: obj({
     name: str(),

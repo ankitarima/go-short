@@ -96,5 +96,12 @@ export const platformAtLeast = (role: PlatformRole, min: StaffRole): boolean =>
 export const PLATFORM_CAPABILITIES: Record<StaffRole, readonly string[]> = {
   MANAGER: ['console:read'],
   ADMIN: ['console:read', 'users:manage', 'queues:manage', 'cleanup:run'],
-  SUPER_ADMIN: ['console:read', 'users:manage', 'queues:manage', 'cleanup:run', 'staff:manage'],
+  SUPER_ADMIN: [
+    'console:read',
+    'users:manage',
+    'queues:manage',
+    'cleanup:run',
+    'staff:manage',
+    'domains:manage',
+  ],
 };

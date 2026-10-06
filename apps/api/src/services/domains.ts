@@ -3,18 +3,25 @@ import type { Domain } from '@go-short/database';
 import type { AppContext } from '../context';
 import { VERIFY_TXT_PREFIX } from './dns';
 
-/** Platform-shared default short domain: workspaceId null, always verified. Idempotent. */
+/** Hostname without a port: what DNS (and a customer's CNAME) deals in. */
+export const hostOnly = (hostname: string): string => hostname.split(':')[0]!.toLowerCase();
+
+/**
+ * First-boot seed. The shared short domains live in the database and are managed from the console;
+ * DEFAULT_SHORT_DOMAIN only provides the first one when there is none yet. It never re-creates,
+ * re-enables or re-defaults anything afterwards, so a restart cannot undo what an admin configured.
+ */
 export async function ensureSharedDomain(ctx: AppContext): Promise<void> {
+  if ((await ctx.prisma.domain.count({ where: { workspaceId: null } })) > 0) return;
   const hostname = ctx.config.DEFAULT_SHORT_DOMAIN.toLowerCase();
   const existing = await ctx.prisma.domain.findUnique({ where: { hostname } });
-  if (existing && existing.workspaceId !== null) {
+  if (existing) {
     throw new Error(
       `DEFAULT_SHORT_DOMAIN ${hostname} is already claimed by a workspace; resolve before starting`,
     );
   }
-  await ctx.prisma.domain.upsert({
-    where: { hostname },
-    create: {
+  await ctx.prisma.domain.create({
+    data: {
       hostname,
       workspaceId: null,
       status: 'VERIFIED',
@@ -22,17 +29,39 @@ export async function ensureSharedDomain(ctx: AppContext): Promise<void> {
       isDefault: true,
       verificationToken: 'shared',
     },
-    update: { status: 'VERIFIED', isVerified: true },
   });
 }
 
-/** Host part (no port) of the CNAME target customers must point at. */
-export const cnameTarget = (ctx: AppContext): string =>
-  ctx.config.DEFAULT_SHORT_DOMAIN.split(':')[0]!.toLowerCase();
+/** Usable shared domains, the default first. */
+export const listActiveShared = (ctx: AppContext): Promise<Domain[]> =>
+  ctx.prisma.domain.findMany({
+    where: { workspaceId: null, status: 'VERIFIED' },
+    orderBy: [{ isDefault: 'desc' }, { createdAt: 'asc' }],
+  });
 
-/** Hostnames that must never be claimable: the app itself and the shared short domain. */
+/**
+ * What customers CNAME their own domains to: the default shared domain (the environment value only
+ * if the database has none). `accepted` is every active shared host, so a domain pointed at an older
+ * shared domain still verifies after the default changes.
+ */
+export async function cnameTargets(
+  ctx: AppContext,
+): Promise<{ primary: string; accepted: string[] }> {
+  const active = await listActiveShared(ctx);
+  const hosts = [...new Set(active.map((d) => hostOnly(d.hostname)))];
+  if (hosts.length === 0) hosts.push(hostOnly(ctx.config.DEFAULT_SHORT_DOMAIN));
+  return { primary: hosts[0]!, accepted: hosts };
+}
+
+/**
+ * Hostnames that must never be claimable: the app itself and the configured seed domain. Shared domains
+ * added in the console are protected by the unique hostname constraint instead.
+ */
 export function reservedHostnames(ctx: AppContext): Set<string> {
-  const names = new Set<string>([ctx.config.DEFAULT_SHORT_DOMAIN.toLowerCase(), cnameTarget(ctx)]);
+  const names = new Set<string>([
+    ctx.config.DEFAULT_SHORT_DOMAIN.toLowerCase(),
+    hostOnly(ctx.config.DEFAULT_SHORT_DOMAIN),
+  ]);
   try {
     names.add(new URL(ctx.config.APP_URL).hostname.toLowerCase());
   } catch {
@@ -56,7 +85,7 @@ export async function requireUsableDomain(
   return domain;
 }
 
-export function domainDto(ctx: AppContext, d: Domain) {
+export function domainDto(d: Domain, cname: string) {
   const shared = d.workspaceId === null;
   return {
     id: d.id,
@@ -70,7 +99,7 @@ export function domainDto(ctx: AppContext, d: Domain) {
     dns: shared
       ? null
       : {
-          cname: { type: 'CNAME', name: d.hostname, value: cnameTarget(ctx) },
+          cname: { type: 'CNAME', name: d.hostname, value: cname },
           txt: {
             type: 'TXT',
             name: `${VERIFY_TXT_PREFIX}.${d.hostname}`,

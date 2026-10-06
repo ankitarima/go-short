@@ -68,7 +68,7 @@ Set in `.env.production` (the full list of application settings is in `.env.exam
 
 | Variable                                                                       | Purpose                                                                                                                                 |
 | ------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `APP_DOMAIN`, `DEFAULT_SHORT_DOMAIN`                                           | Public hostnames of the app and of the shared short domain                                                                              |
+| `APP_DOMAIN`, `DEFAULT_SHORT_DOMAIN`                                           | Public hostname of the app; and the FIRST shared short domain (a first-boot seed: more are added in the console)                        |
 | `ACME_EMAIL`                                                                   | Contact address for Let's Encrypt (standalone only)                                                                                     |
 | `POSTGRES_*`, `VALKEY_PASSWORD`                                                | Database credentials (the containers are not reachable from outside the Docker network)                                                 |
 | `SESSION_SECRET`                                                               | Keys webhook-secret encryption and the daily visitor-hash salts. **Back it up; changing it makes stored webhook secrets undecryptable** |

@@ -22,7 +22,7 @@ Platform roles are separate from workspace roles and are checked by the API on e
 | --------------- | ------------------------------------------------------------------------------------------------------------------ |
 | **Manager**     | Read everything. Intended for monitoring and support.                                                              |
 | **Admin**       | Everything a manager can, plus suspend and re-enable accounts, retry or delete failed jobs, and run cleanup tasks. |
-| **Super admin** | Everything an admin can, plus add, change and remove platform staff.                                               |
+| **Super admin** | Everything an admin can, plus add, change and remove platform staff, and manage the shared short domains.          |
 
 Rules the API enforces: nobody changes their own role or suspends themselves; only a super admin can change or suspend another staff member; the platform always keeps at least one **active** super admin. API keys never carry platform powers.
 
@@ -35,9 +35,24 @@ Rules the API enforces: nobody changes their own role or suspends themselves; on
 | **Users**           | Search all accounts; open one to see its workspaces, sessions and API keys; suspend or re-enable it                                                                                      |
 | **Workspaces**      | Every workspace with its size; a detail page with members, domains, privacy settings and 30-day clicks                                                                                   |
 | **Teams**           | Every membership across all workspaces, filterable by role                                                                                                                               |
+| **Short domains**   | The shared hostnames every workspace can put links on: add one, choose the default, disable, enable or remove it, and check its DNS. See below                                           |
 | **Platform staff**  | Who has console access and with which role; super admins add, change and remove them                                                                                                     |
 | **Audit log**       | Security-relevant actions across the platform, with who did them, including everything staff do in the console                                                                           |
 | **Queues and jobs** | Queue counts, failed jobs (payloads summarised, never shown), retry/delete, and run-now cleanup tasks                                                                                    |
+
+## Short domains
+
+Shared short domains live in the database and are managed on the **Short domains** page (super admin to change; manager and admin can look). `DEFAULT_SHORT_DOMAIN` is only a **first-boot seed**: when the database has no shared domain yet, it creates that one as the default. After that the environment variable is never consulted for what is active, so a restart cannot undo a change made here, and you do not edit environment variables or redeploy to add a domain.
+
+- **Add**: type a hostname (e.g. `go.example.com`). It is active at once and every workspace sees it in the link form. The first shared domain is always the default; tick "Make it the default" to move the default. After adding, the console checks whether the name already points at this server and says so if it does not (a hint: behind a CDN or proxy the addresses can legitimately differ).
+- **Default**: used for new links when the person does not pick a domain, and as the CNAME target customers are told to use for their own domains. Changing it never touches existing links. A customer who pointed a CNAME at another active shared domain still verifies.
+- **Disable / enable**: a disabled domain stops redirecting its links, is not offered for new ones and gets no certificate. The default cannot be disabled, and at least one shared domain must stay active.
+- **Remove**: refused for the default and for any domain that still has links (removing would delete them and their QR codes); disable it instead.
+- **Names that cannot be added**: the app's own hostname, IP addresses, anything that is not a valid hostname, and names already used (including a workspace's custom domain).
+
+Every change is in the audit log (`SHARED_DOMAIN_ADDED`, `SHARED_DOMAIN_UPDATED`, `SHARED_DOMAIN_REMOVED`).
+
+**Certificates and DNS are still outside the app.** Point the new hostname's DNS at the server first. With the standalone Caddy stack the certificate is then issued automatically on the first request (Caddy asks the API's TLS check, which now approves every active shared domain). On **Coolify** the proxy only serves hostnames it has been told about: add the new hostname to the `web` service's domains as well ([coolify.md](coolify.md)). Cached redirects for a domain that is disabled are cleared immediately; the redirect service looks up which hostnames are valid every 30 seconds, so the bare root of a just-added or just-disabled domain can lag by that long.
 
 ## Suspending an account
 

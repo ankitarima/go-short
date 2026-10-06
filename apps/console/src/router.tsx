@@ -4,6 +4,7 @@ import { Toaster } from 'sonner';
 import { ApiError } from '@/lib/api';
 import { Gate } from '@/components/Gate';
 import { AuditPage } from '@/pages/AuditPage';
+import { DomainsPage } from '@/pages/DomainsPage';
 import { MonitoringPage } from '@/pages/MonitoringPage';
 import { OverviewPage } from '@/pages/OverviewPage';
 import { QueuesPage } from '@/pages/QueuesPage';
@@ -22,6 +23,7 @@ export const routes = [
       { path: '/workspaces', element: <WorkspacesPage /> },
       { path: '/workspaces/:id', element: <WorkspaceDetailPage /> },
       { path: '/teams', element: <TeamsPage /> },
+      { path: '/domains', element: <DomainsPage /> },
       { path: '/staff', element: <StaffPage /> },
       { path: '/audit', element: <AuditPage /> },
       { path: '/queues', element: <QueuesPage /> },

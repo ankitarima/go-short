@@ -3,7 +3,7 @@
 ## Model
 
 - `Domain.hostname` is globally unique, so a hostname can belong to only one workspace.
-- The platform's own short domain (`DEFAULT_SHORT_DOMAIN`) is a **shared domain**: a `Domain` row with `workspaceId = null`, created idempotently at API start-up. Every workspace can create links on it; slugs on it are unique across all tenants (so a taken slug reveals that the slug exists somewhere — pick random slugs for anything sensitive). Shared domains cannot be edited, disabled or deleted through the API.
+- The platform's short domains are **shared domains**: `Domain` rows with `workspaceId = null`. The first is seeded from `DEFAULT_SHORT_DOMAIN` when the database has none; after that they are added, defaulted, disabled and removed by a super admin in the console ([console.md](console.md#short-domains)). Every workspace can create links on every active one; slugs on a shared domain are unique across all tenants (so a taken slug reveals that the slug exists somewhere — pick random slugs for anything sensitive). Workspaces cannot edit or delete shared domains through the workspace API.
 - Links may only use a domain that is the workspace's own or shared, **and** `VERIFIED`.
 
 ## Flow
@@ -23,16 +23,16 @@ sequenceDiagram
 
 Records shown to the user:
 
-| Type                                            | Name                               | Value                                   |
-| ----------------------------------------------- | ---------------------------------- | --------------------------------------- |
-| CNAME (preferred for subdomains)                | `links.client.com`                 | the host part of `DEFAULT_SHORT_DOMAIN` |
-| TXT (apex domains, or proxied/flattened CNAMEs) | `_goshort-verify.links.client.com` | the per-domain `verificationToken`      |
+| Type                                            | Name                               | Value                                      |
+| ----------------------------------------------- | ---------------------------------- | ------------------------------------------ |
+| CNAME (preferred for subdomains)                | `links.client.com`                 | the host part of the default shared domain |
+| TXT (apex domains, or proxied/flattened CNAMEs) | `_goshort-verify.links.client.com` | the per-domain `verificationToken`         |
 
 Either record verifies the domain. DNS errors (NXDOMAIN, timeouts) count as "not verified"; verification is rate limited to 10/min per workspace.
 
 ## HTTPS
 
-Caddy provisions certificates on demand for custom hostnames. Before issuing, it calls `GET /internal/tls-check?domain=<host>&token=<INTERNAL_API_TOKEN>` on the API, which returns 200 only for the shared domain or a `VERIFIED` custom domain, so arbitrary Host headers cannot trigger certificate issuance. The token is required in production (`INTERNAL_API_TOKEN`), and the proxy must not route `/internal/*` publicly. See [deployment.md](deployment.md).
+Caddy provisions certificates on demand for custom hostnames. Before issuing, it calls `GET /internal/tls-check?domain=<host>&token=<INTERNAL_API_TOKEN>` on the API, which returns 200 only for an active shared domain or a `VERIFIED` custom domain, so arbitrary Host headers cannot trigger certificate issuance. The token is required in production (`INTERNAL_API_TOKEN`), and the proxy must not route `/internal/*` publicly. See [deployment.md](deployment.md).
 
 ## Rules and limits
 

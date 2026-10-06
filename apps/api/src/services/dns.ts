@@ -4,11 +4,20 @@ import { promises as dns } from 'node:dns';
 export interface DnsResolver {
   resolveCname(hostname: string): Promise<string[]>;
   resolveTxt(hostname: string): Promise<string[][]>;
+  /** A and AAAA addresses; empty when the name does not resolve. */
+  resolveAddresses(hostname: string): Promise<string[]>;
 }
 
 export const systemDnsResolver: DnsResolver = {
   resolveCname: (h) => dns.resolveCname(h),
   resolveTxt: (h) => dns.resolveTxt(h),
+  resolveAddresses: async (h) => {
+    const [v4, v6] = await Promise.all([
+      dns.resolve4(h).catch(() => [] as string[]),
+      dns.resolve6(h).catch(() => [] as string[]),
+    ]);
+    return [...v4, ...v6];
+  },
 };
 
 export const VERIFY_TXT_PREFIX = '_goshort-verify';
@@ -25,11 +34,11 @@ export async function checkDomainDns(
   resolver: DnsResolver,
   hostname: string,
   token: string,
-  cnameTarget: string,
+  cnameTarget: string | readonly string[],
 ): Promise<DnsCheck> {
-  const target = norm(cnameTarget);
+  const targets = (Array.isArray(cnameTarget) ? cnameTarget : [cnameTarget]).map(norm);
   const cnames = await resolver.resolveCname(hostname).catch(() => [] as string[]);
-  if (cnames.some((c) => norm(c) === target)) return { ok: true, method: 'CNAME' };
+  if (cnames.some((c) => targets.includes(norm(c)))) return { ok: true, method: 'CNAME' };
   const txts = await resolver
     .resolveTxt(`${VERIFY_TXT_PREFIX}.${hostname}`)
     .catch(() => [] as string[][]);

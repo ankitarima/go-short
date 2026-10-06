@@ -272,6 +272,15 @@ export const addStaffSchema = z.object({
   role: staffRoleSchema,
 });
 export const updateStaffSchema = z.object({ role: staffRoleSchema });
+export const createSharedDomainSchema = z.object({
+  hostname: z.string().trim().min(1).max(253),
+  /** Make it the default for new links straight away (the first shared domain always is). */
+  makeDefault: z.boolean().optional(),
+});
+export const updateSharedDomainSchema = z
+  .object({ isDefault: z.literal(true), disabled: z.boolean() })
+  .partial()
+  .refine((o) => Object.keys(o).length > 0, 'No fields to update');
 export const teamsQuery = adminListQuery.extend({
   role: z.enum(['OWNER', 'ADMIN', 'MEMBER', 'VIEWER']).optional(),
 });

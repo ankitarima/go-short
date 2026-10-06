@@ -73,7 +73,6 @@ export function createRedirectServer(deps: RedirectDeps): Server {
     onCache: (result) => metrics.cache.inc({ result }),
     onDbLookup: (s) => metrics.dbLookup.observe(s),
   });
-  const sharedHost = config.DEFAULT_SHORT_DOMAIN.toLowerCase();
 
   function html(res: ServerResponse, status: number, body: string, head: boolean): void {
     res.writeHead(status, {
@@ -307,7 +306,8 @@ export function createRedirectServer(deps: RedirectDeps): Server {
     if (method === 'GET' || head) {
       if (path === '/') {
         // The bare shared domain points people at the app; custom domains have no landing page.
-        if (host === sharedHost) return void res.writeHead(302, { Location: config.APP_URL }).end();
+        if ((await domains.kind(host)) === 'shared')
+          return void res.writeHead(302, { Location: config.APP_URL }).end();
         return html(res, 404, notFoundPage(), head);
       }
       const m = SLUG_PATH.exec(path);

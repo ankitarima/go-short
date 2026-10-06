@@ -11,7 +11,7 @@ const LOOKUPS_PER_SECOND = 50;
  * queries or negative-cache keys.
  */
 export class DomainRegistry {
-  private readonly known = new Map<string, { ok: boolean; until: number }>();
+  private readonly known = new Map<string, { kind: 'shared' | 'custom' | null; until: number }>();
   private tokens = LOOKUPS_PER_SECOND;
   private refilledAt = Date.now();
 
@@ -32,17 +32,23 @@ export class DomainRegistry {
     return true;
   }
 
-  async isKnown(hostname: string): Promise<boolean> {
+  /** The platform's shared short domains are managed in the console, so this is always read from the database. */
+  async kind(hostname: string): Promise<'shared' | 'custom' | null> {
     const hit = this.known.get(hostname);
     const t = this.now();
-    if (hit && hit.until > t) return hit.ok;
-    if (!this.takeToken()) return false; // over budget: treat as unknown, do not touch the DB
+    if (hit && hit.until > t) return hit.kind;
+    if (!this.takeToken()) return null; // over budget: treat as unknown, do not touch the DB
     const row = await this.prisma.domain.findFirst({
       where: { hostname, status: 'VERIFIED' },
-      select: { id: true },
+      select: { workspaceId: true },
     });
+    const kind = row === null ? null : row.workspaceId === null ? 'shared' : 'custom';
     if (this.known.size >= MAX_ENTRIES) this.known.delete(this.known.keys().next().value as string);
-    this.known.set(hostname, { ok: row !== null, until: t + TTL_MS });
-    return row !== null;
+    this.known.set(hostname, { kind, until: t + TTL_MS });
+    return kind;
+  }
+
+  async isKnown(hostname: string): Promise<boolean> {
+    return (await this.kind(hostname)) !== null;
   }
 }

@@ -19,7 +19,14 @@ export const consoleMe = (role: StaffRole = 'ADMIN', over: Partial<ConsoleMe> = 
       ? ['console:read']
       : role === 'ADMIN'
         ? ['console:read', 'users:manage', 'queues:manage', 'cleanup:run']
-        : ['console:read', 'users:manage', 'queues:manage', 'cleanup:run', 'staff:manage'],
+        : [
+            'console:read',
+            'users:manage',
+            'queues:manage',
+            'cleanup:run',
+            'staff:manage',
+            'domains:manage',
+          ],
   links: { grafana: null, prometheus: null },
   metricsConfigured: false,
   csrfToken: 'csrf-123',
@@ -92,6 +99,9 @@ export const server = setupServer(
   http.get('/api/v1/admin/workspaces', () => ok([], { nextCursor: null })),
   http.get('/api/v1/admin/teams', () => ok([], { nextCursor: null })),
   http.get('/api/v1/admin/staff', () => ok([mkStaff()])),
+  http.get('/api/v1/admin/shared-domains', () =>
+    ok({ domains: [], cnameTarget: 'go.example.com', appHostname: 'app.example.com' }),
+  ),
   http.get('/api/v1/admin/audit-logs', () => ok([], { nextCursor: null })),
   http.get('/api/v1/admin/queues', () => ok(stats.queues)),
   http.get('/api/v1/admin/queues/:q/failed', () => ok([])),

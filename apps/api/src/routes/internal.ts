@@ -16,11 +16,14 @@ export function internalRouter(ctx: AppContext): Router {
     const given = typeof req.query.token === 'string' ? req.query.token : '';
     if (expected && !safeEqual(given, expected)) return void res.status(403).end();
 
-    const raw = typeof req.query.domain === 'string' ? req.query.domain : '';
-    const shared = ctx.config.DEFAULT_SHORT_DOMAIN.toLowerCase();
-    const hostname = raw.toLowerCase() === shared ? shared : normalizeHostname(raw);
-    if (!hostname) return void res.status(404).end();
-    const d = await ctx.prisma.domain.findUnique({ where: { hostname }, select: { status: true } });
+    const raw = typeof req.query.domain === 'string' ? req.query.domain.toLowerCase() : '';
+    // The exact string covers shared domains with a port (local dev); the normalised form covers the rest.
+    const candidates = [...new Set([raw, normalizeHostname(raw)].filter((h): h is string => !!h))];
+    if (candidates.length === 0) return void res.status(404).end();
+    const d = await ctx.prisma.domain.findFirst({
+      where: { hostname: { in: candidates } },
+      select: { status: true },
+    });
     res.status(d?.status === 'VERIFIED' ? 200 : 404).end();
   });
   return r;

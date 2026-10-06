@@ -171,6 +171,61 @@ describe('link states', () => {
   });
 });
 
+describe('shared domains added later (console-managed)', () => {
+  async function sharedHost(hostname: string, extra: object = {}) {
+    return prisma.domain.create({
+      data: {
+        hostname,
+        workspaceId: null,
+        status: 'VERIFIED',
+        isVerified: true,
+        verificationToken: 'shared',
+        ...extra,
+      },
+    });
+  }
+
+  it('serves links on an extra shared domain, and its bare root goes to the app like the first one', async () => {
+    const { ws } = await seedWorkspace();
+    const extra = await sharedHost('go2.example.com');
+    await seedLink(ws.id, extra.id, 'sale', { destinationUrl: 'https://two.example/' });
+    const { server } = makeRedirect();
+    expect((await get(server, '/sale', 'go2.example.com')).headers.location).toBe(
+      'https://two.example/',
+    );
+    expect((await get(server, '/', 'go2.example.com')).headers.location).toBe(
+      'http://localhost:5173',
+    );
+    // A workspace's own domain has no landing page; it is not a shared one.
+    const custom = await customDomain(ws.id, 'links.client.com');
+    expect(custom.workspaceId).toBe(ws.id);
+    await get(server, '/', 'links.client.com').expect(404);
+  });
+
+  it('the seed domain from the environment is not special: with another shared domain only, it still works through the database', async () => {
+    const { ws } = await seedWorkspace();
+    await prisma.link.deleteMany();
+    await prisma.domain.deleteMany({ where: { hostname: 'localhost:4001' } });
+    const only = await sharedHost('only.example.com', { isDefault: true });
+    await seedLink(ws.id, only.id, 'hi', { destinationUrl: 'https://x.example/' });
+    const { server } = makeRedirect();
+    await get(server, '/hi', 'only.example.com').expect(302);
+    await get(server, '/hi', HOST).expect(404);
+    expect((await get(server, '/', 'only.example.com')).status).toBe(302);
+    await get(server, '/', HOST).expect(404);
+  });
+
+  it('a disabled shared domain stops redirecting and its root no longer points at the app', async () => {
+    const { ws } = await seedWorkspace();
+    const extra = await sharedHost('go2.example.com');
+    await seedLink(ws.id, extra.id, 'sale', { destinationUrl: 'https://two.example/' });
+    await prisma.domain.update({ where: { id: extra.id }, data: { status: 'DISABLED' } });
+    const { server } = makeRedirect();
+    await get(server, '/sale', 'go2.example.com').expect(404);
+    await get(server, '/', 'go2.example.com').expect(404);
+  });
+});
+
 describe('custom domains and host safety', () => {
   it('same slug on different domains goes to different destinations', async () => {
     const { ws } = await seedWorkspace();

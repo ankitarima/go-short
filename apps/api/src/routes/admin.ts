@@ -7,6 +7,7 @@ import type { AppContext } from '../context';
 import { loadConsoleSession, requireAuth, requirePlatform } from '../middleware/auth';
 import { consoleAuthRouter } from './adminAuth';
 import { audit } from '../services/audit';
+import { registerSharedDomainRoutes } from './adminDomains';
 import { registerPlatformRoutes } from './adminPlatform';
 
 /** Prisma's `contains` does not escape LIKE wildcards. */
@@ -360,5 +361,6 @@ export function adminRouter(ctx: AppContext): Router {
   });
 
   registerPlatformRoutes(r, ctx);
+  registerSharedDomainRoutes(r, ctx);
   return r;
 }
