@@ -24,6 +24,16 @@
 6. Run `./scripts/smoke.sh https://app.example.com` from your machine.
 7. **GeoIP and backups** are the same as the standalone setup, but run through the Coolify host's shell (`docker compose -p <project> ...` against the stack Coolify created) or Coolify's scheduled-task feature; Coolify can also back up databases it manages itself, which does not cover this compose-managed Postgres. Follow [backup-restore.md](backup-restore.md).
 
+## First super admin
+
+No default credentials exist. In Coolify open the **api** service > **Terminal** and run (the password is read from the environment, so it is not an argument; 12+ characters):
+
+```bash
+ADMIN_PASSWORD='a long passphrase' node dist/cli/create-admin.js admin@yourdomain.com "Your Name"
+```
+
+This creates a verified account with the SUPER_ADMIN role; sign in at `https://APP_DOMAIN/console`. Run it again for an existing email to promote that account instead (its password is left alone); `--role ADMIN|MANAGER` picks a lower role. Further staff are added from the console's Staff page. Clear the command from the terminal history afterwards.
+
 ## Custom domains on Coolify
 
 Coolify's proxy issues a certificate only for hostnames it has been told about. When a customer verifies a domain in goShort, add the same hostname to the `web` service's domain list in Coolify (and redeploy/reload the proxy as Coolify requires). The DNS check goShort performs is the same either way; only the certificate step is manual.
