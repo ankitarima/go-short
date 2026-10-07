@@ -21,6 +21,7 @@
     "build": "npm run build --workspaces --if-present",
     "db:migrate": "npm run migrate --workspace @go-short/database",
     "db:generate": "npm run generate --workspace @go-short/database",
+    "db:studio": "npm run studio --workspace @go-short/database",
     "dev": "concurrently -k -n api,worker,redirect,web,console -c blue,magenta,yellow,green,cyan \"npm run dev -w @go-short/api\" \"npm run dev -w @go-short/worker\" \"npm run dev -w @go-short/redirect\" \"npm run dev -w @go-short/web\" \"npm run dev -w @go-short/console\"",
     "seed:demo": "tsx --env-file=.env scripts/seed-demo.ts"
   },

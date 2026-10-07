@@ -9,6 +9,7 @@
   },
   "scripts": {
     "generate": "prisma generate",
+    "studio": "prisma studio",
     "migrate": "prisma migrate dev",
     "migrate:deploy": "prisma migrate deploy",
     "postinstall": "prisma generate",

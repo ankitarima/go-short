@@ -24,6 +24,10 @@
 6. Run `./scripts/smoke.sh https://app.example.com` from your machine.
 7. **GeoIP and backups** are the same as the standalone setup, but run through the Coolify host's shell (`docker compose -p <project> ...` against the stack Coolify created) or Coolify's scheduled-task feature; Coolify can also back up databases it manages itself, which does not cover this compose-managed Postgres. Follow [backup-restore.md](backup-restore.md).
 
+## Database access
+
+Postgres is published on the server's loopback (`127.0.0.1:15432`), never publicly. From your laptop: `ssh -N -L 15432:127.0.0.1:15432 user@server`, then `DATABASE_URL='postgresql://goshort:PASSWORD@localhost:15432/goshort' npm run db:studio`. Details and safety rules: [database-access.md](database-access.md).
+
 ## First super admin
 
 No default credentials exist. In Coolify open the **api** service > **Terminal** and run (the password is read from the environment, so it is not an argument; 12+ characters):

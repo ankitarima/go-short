@@ -64,6 +64,9 @@ services:
       - -c
       - shared_buffers=256MB
     volumes: [pgdata:/var/lib/postgresql/data]
+    # Loopback only: unreachable from the internet, reachable from the server itself and through an SSH
+    # tunnel (docs/database-access.md). Change the host port if 15432 is taken; never bind it to 0.0.0.0.
+    ports: ['127.0.0.1:${POSTGRES_HOST_PORT:-15432}:5432']
     networks: [internal]
     healthcheck:
       test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']

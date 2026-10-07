@@ -20,7 +20,7 @@ internet ──► Caddy ─┬─► web app (static files)        APP_DOMAIN
 ```
 
 - **migrate** is a one-shot container that runs `prisma migrate deploy` before the apps start. The Prisma CLI exists only in that image; the runtime images do not contain it.
-- Only Caddy publishes ports (80, 443). Postgres, Valkey and the three metrics ports are on a private Docker network.
+- Only Caddy publishes ports to the internet (80, 443). Valkey and the three metrics ports are on a private Docker network; Postgres is also published, but on the server's loopback only (`127.0.0.1:15432`), for tunnelled access: [database-access.md](database-access.md).
 - Runtime containers run as a non-root user, with a read-only root filesystem, all Linux capabilities dropped, `no-new-privileges`, an init process, log rotation, health checks and memory limits. **The memory limits are conservative starting points, not measured requirements**; the load tests (phase 17) are what should set them.
 
 ## Requirements
