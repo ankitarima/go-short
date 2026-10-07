@@ -174,6 +174,45 @@ describe('adding', () => {
     expect((await get(root, A()).expect(200)).body.data.appHostname).toBe('app.platform.io');
   });
 
+  it('treats the environment seed as an ordinary shared domain: a duplicate says so, and it can be re-added once removed', async () => {
+    const seeded = createApp({
+      ...ctx,
+      config: { ...ctx.config, DEFAULT_SHORT_DOMAIN: 'go.seed.example.com' },
+    });
+    const c = await registerUser(seeded);
+    await ctx.prisma.user.update({ where: { id: c.userId }, data: { systemRole: 'SUPER_ADMIN' } });
+    const root = await consoleLogin(c);
+    // Seed it the way a first boot with that environment value would.
+    await ctx.prisma.domain.create({
+      data: {
+        hostname: 'go.seed.example.com',
+        workspaceId: null,
+        status: 'VERIFIED',
+        isVerified: true,
+        verificationToken: 'shared',
+      },
+    });
+    const dup = await post(root, A(), { hostname: 'go.seed.example.com' }).expect(409);
+    expect(dup.body.error.message).toMatch(/already a shared short domain/);
+    expect(dup.body.error.message).not.toMatch(/app’s own hostname/);
+    const row = await ctx.prisma.domain.findFirstOrThrow({
+      where: { hostname: 'go.seed.example.com' },
+    });
+    await ctx.prisma.domain.delete({ where: { id: row.id } });
+    await post(root, A(), { hostname: 'go.seed.example.com' }).expect(201);
+  });
+
+  it('says when a workspace already uses the name', async () => {
+    const root = await staff('SUPER_ADMIN');
+    const owner = await registerUser(app);
+    const ws = await createWorkspace(owner);
+    await post(owner, `/api/v1/workspaces/${ws}/domains`, { hostname: 'mine.example.com' }).expect(
+      201,
+    );
+    const res = await add(root, 'mine.example.com').expect(409);
+    expect(res.body.error.message).toMatch(/workspace already uses/);
+  });
+
   it('is audited', async () => {
     const root = await staff('SUPER_ADMIN');
     const id = (await add(root, 'go2.example.com').expect(201)).body.data.id;

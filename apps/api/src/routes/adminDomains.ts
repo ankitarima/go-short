@@ -7,7 +7,7 @@ import type { AppContext } from '../context';
 import { requirePlatform } from '../middleware/auth';
 import { audit } from '../services/audit';
 import { invalidateDomain } from '../services/cache';
-import { cnameTargets, hostOnly, reservedHostnames } from '../services/domains';
+import { cnameTargets, hostOnly } from '../services/domains';
 
 const isUniqueViolation = (e: unknown) =>
   typeof e === 'object' && e !== null && 'code' in e && e.code === 'P2002';
@@ -66,7 +66,9 @@ export function registerSharedDomainRoutes(r: Router, ctx: AppContext): void {
         { path: 'hostname', message: 'Enter a valid domain name, e.g. go.example.com' },
       ]);
     }
-    if (reservedHostnames(ctx).has(hostname)) {
+    // Only the app's own hostname is off limits. The environment seed is NOT: it is just the first shared
+    // domain, so it may already exist (a duplicate, reported below) or have been removed and be re-added.
+    if (hostname === new URL(ctx.config.APP_URL).hostname.toLowerCase()) {
       throw new AppError('DOMAIN_TAKEN', 'That is the app’s own hostname; use a different one', [
         { path: 'hostname', message: 'That is the app’s own hostname' },
       ]);
@@ -103,12 +105,17 @@ export function registerSharedDomainRoutes(r: Router, ctx: AppContext): void {
       });
       res.status(201).json({ success: true, data: dto(created, 0) });
     } catch (err) {
-      if (isUniqueViolation(err))
-        throw new AppError(
-          'DOMAIN_TAKEN',
-          'That domain is already in use (as a shared domain or a workspace’s custom domain)',
-          [{ path: 'hostname', message: 'Already in use' }],
-        );
+      if (isUniqueViolation(err)) {
+        const existing = await prisma.domain.findUnique({
+          where: { hostname },
+          select: { workspaceId: true },
+        });
+        const message =
+          existing?.workspaceId === null
+            ? 'That domain is already a shared short domain (see the list above)'
+            : 'A workspace already uses that domain as its own custom domain';
+        throw new AppError('DOMAIN_TAKEN', message, [{ path: 'hostname', message }]);
+      }
       throw err;
     }
   });
